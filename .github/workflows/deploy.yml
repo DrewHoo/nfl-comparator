@@ -6,9 +6,8 @@ on:
   workflow_dispatch:
   # Tuesday noon UTC, after Monday night: the scheduled build refetches the
   # nflverse files and rebuilds the ledger before building (a manual run does
-  # too), so the week's
-  # games reach the site without a commit. A push builds from the committed
-  # ledgers, so a code change never waits on a download.
+  # too), so the week's games reach the site without a commit. A push builds
+  # from the committed ledgers, so a code change never waits on a download.
   schedule:
     - cron: '0 12 * * 2'
 
