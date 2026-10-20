@@ -83,6 +83,35 @@ can surprise you. Add to it whenever a gate or a reader's correction teaches us 
   doesn't have falls back to wins / rushing TDs / receptions; a test query with no tests
   gets the stat's second threshold; `starts` on a non-QB becomes `games`.
 
+## The records mine (`src/lib/records.ts`, specs/player-pages.spec.md)
+
+- **A lead is an interval of N**, one row per run of consecutive N at rank 1 (gaps of
+  `gapTol` bridged and counted as holes), worded at the N where the row scores best. A
+  live lead is worded at the player's current N. Never emit a row per N.
+- **A player-season is in a field only when the player played the window**: a QB who
+  started half the team's first N games, a back or receiver averaging `touches` carries
+  + targets. Without it the field at N=7 was every QB with a stat line (2,077) and every
+  row hit the dominance cap.
+- **A clean-game test (max 0) needs `played`**: QB 10+ attempts, RB 5+ carries + targets,
+  WR/TE 3+ targets. Garoppolo had 16 straight no-INT games from one-attempt relief
+  appearances before this. `query.ts` doesn't guard yet; the board and a page have to
+  agree before a page ships.
+- **Fewest-of-a-bad-thing sums are starts-only.** Through N games the winner is whoever
+  played least.
+- **Tests over the seasons sequence mean "one game of the season passed"**, so the mine
+  walks sums only over seasons. "Each of" is admitted only when the leader's count is N.
+- **A set row's field is the field at the time**, and in 2010 two careers had reached
+  150 starts, so "1st of 2" is honest and its field term is 1 bit.
+- **Derived stats fold under their parts when they say the same number** (`COMPONENTS`):
+  Brady's 10 straight 3+ passing-TD games is also 10 straight 3+ pass+rush and 3+ total,
+  and the page shows one.
+- **The milestone grid must stop at the ledger's biggest total.** `milestones(stat, 1e9)`
+  builds 20 million entries for a tick of 10; the mine took twice as long and a test
+  timed out before the grid was bounded by the largest career total.
+- **A player file carries inputs, not scores.** The page scores at load with `RECORDS`
+  so the tuner works without a rebuild, but the worded N (`at`) is the build's and a
+  knob change never re-words a row.
+
 ## Working here
 
 - `rtk` rewrites `vitest` output and its parser fails on it; run
@@ -95,6 +124,11 @@ can surprise you. Add to it whenever a gate or a reader's correction teaches us 
 - Vite 8 is rolldown: the per-position chunk is `build.rolldownOptions.output.codeSplitting`
   (`advancedChunks` is deprecated and warns).
 - The dev-server preview config is `.claude/launch.json` (port 5175, gitignored).
+- `npm run records` writes `public/players/` (gitignored, 20 s); a player page on the
+  dev server 404s its file until it has run. `npm run build` runs it first, then the
+  prerender writes a page per player.
+- `records.test.ts` mines QB and WR once per run (~12 s); vitest's 5 s per-test timeout
+  is fine because the mine runs at module load, not inside a test.
 - The deploy workflow refetches and rebuilds the ledger on the Tuesday schedule and on a
   manual run, never on a push; the ledgers in `src/data/` are what a push deploys, so
   commit them after a local `npm run ledger` when a code change should ship with fresh

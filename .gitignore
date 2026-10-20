@@ -9,5 +9,7 @@ dist
 # reference), keep the fetched files out of git and let CI regenerate them:
 # public/data/
 data/raw/
+# the records mine's output, built by scripts/build-records.mjs
+public/players/
 data/build/
 .claude/

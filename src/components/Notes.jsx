@@ -1,7 +1,7 @@
 // Method notes: where the games come from and the rulings the words rest on.
 export function Notes({ ledger }) {
   return (
-    <section className="notes" aria-label="Method">
+    <section className="notes" aria-label="Method" id="method">
       <h2>Method</h2>
       <p>
         Every row is a player's games in order, with the box-score line and the result, from the{' '}
@@ -21,6 +21,12 @@ export function Notes({ ledger }) {
         Ranks are competition ranks, ties included. "Still inside the window" lists the players who haven't played the
         whole window yet, with their total so far. The panel reads a row against a peer: where their curves met, and
         what the player needs over the next five games to match the peer there.
+      </p>
+      <p>
+        A player's page (from his name in the panel) lists every comparison he leads: the stretch of N where he is first
+        under a sentence, the records he set that were later broken, and the points where he is ahead of one of the ten
+        biggest careers in the stat. The rows are scored in bits (how many could have held it, how deep the window, how
+        long the lead held, by how much, how plainly it reads) and folded to one row per claim.
       </p>
       <p>
         A sibling of <a href="https://drewhoover.com/cfb-streak-king/">College Football Streak King</a>.

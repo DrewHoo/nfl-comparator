@@ -17,9 +17,12 @@ function ValueCell({ r, q }) {
   )
 }
 
-function Rows({ rows, q, open, onOpen, start = 0 }) {
+// the open row's panel sits right under it, so opening a row far down the
+// list shows the detail where the reader is looking
+function Rows({ rows, q, open, onOpen, panel, start = 0 }) {
   return rows.map((r, i) => (
-    <button key={r.key} className={'brow' + (open === r.key ? ' hi' : '')} onClick={() => onOpen(r.key)} aria-pressed={open === r.key}>
+    <div key={r.key} className={'brow-wrap' + (open === r.key ? ' open' : '')}>
+    <button className={'brow' + (open === r.key ? ' hi' : '')} onClick={() => onOpen(r.key)} aria-pressed={open === r.key} aria-expanded={open === r.key}>
       <span className={'brank' + (r.rank === 1 ? ' one' : '')}>{r.complete ? `${r.tied ? 'T' : ''}${r.rank}` : start + i + 1}</span>
       <span className="bname">
         <b>{rowName(r)}</b>
@@ -27,13 +30,20 @@ function Rows({ rows, q, open, onOpen, start = 0 }) {
       </span>
       <ValueCell r={r} q={q} />
     </button>
+    {open === r.key && panel}
+    </div>
   ))
 }
 
-export function Board({ board, query, open, onOpen }) {
+export function Board({ board, query, open, onOpen, panel }) {
   const [shown, setShown] = useState(PAGE)
   const [shownWay, setShownWay] = useState(6)
   const q = query
+  // the open row is always on the page, however far down it ranks
+  const openAt = open ? board.ranked.findIndex((r) => r.key === open) : -1
+  const openWayAt = open && openAt < 0 ? board.onTheWay.findIndex((r) => r.key === open) : -1
+  const showN = openAt >= shown ? openAt + 1 : shown
+  const showWayN = openWayAt >= shownWay ? openWayAt + 1 : shownWay
   const stat = statByKey(q.stat)
   const ranked = board.ranked
   const way = board.onTheWay
@@ -45,16 +55,16 @@ export function Board({ board, query, open, onOpen }) {
         <span>{q.how === 'reach' ? seqWords(q.seq, 2) : q.how === 'sum' ? stat.noun : q.how === 'streak' ? `straight games of ${testsWords(q.tests)}` : `games of ${testsWords(q.tests)}`}</span>
       </div>
       {ranked.length === 0 && <p className="empty">Nobody has {q.how === 'reach' ? 'got there' : 'the whole window'} yet. Shorten it.</p>}
-      <Rows rows={ranked.slice(0, shown)} q={q} open={open} onOpen={onOpen} />
-      {ranked.length > shown && <button className="morebtn" onClick={() => setShown(shown + PAGE * 2)}>see more · {ranked.length - shown} below</button>}
+      <Rows rows={ranked.slice(0, showN)} q={q} open={open} onOpen={onOpen} panel={panel} />
+      {ranked.length > showN && <button className="morebtn" onClick={() => setShown(showN + PAGE * 2)}>see more · {ranked.length - showN} below</button>}
       {way.length > 0 && (
         <>
           <div className="board-h" style={{ marginTop: 18 }}>
             <span>{way.length.toLocaleString('en-US')} still inside the window</span>
             <span>so far</span>
           </div>
-          <Rows rows={way.slice(0, shownWay)} q={q} open={open} onOpen={onOpen} />
-          {way.length > shownWay && <button className="morebtn" onClick={() => setShownWay(shownWay + PAGE)}>see more · {way.length - shownWay} below</button>}
+          <Rows rows={way.slice(0, showWayN)} q={q} open={open} onOpen={onOpen} panel={panel} />
+          {way.length > showWayN && <button className="morebtn" onClick={() => setShownWay(showWayN + PAGE)}>see more · {way.length - showWayN} below</button>}
         </>
       )}
     </section>

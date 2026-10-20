@@ -1,7 +1,7 @@
 // The words of a query and of a row: the sentence the pickers sit in, the
 // claim a row makes. Pure, so the prerender, the panel and a share card say
 // the same thing.
-import type { Pos } from './ledger.ts'
+import { fmtDate, type Pos } from './ledger.ts'
 import type { Query, Row, Seq, Test } from './query.ts'
 import { countWords, statByKey } from './stats.ts'
 
@@ -69,3 +69,50 @@ export function rowWords(r: Row, q: Query): string {
 
 /** "1st of 212", "T-3rd of 212" */
 export const rankWords = (r: Row, field: number) => `${r.tied ? 'T-' : ''}${ord(r.rank)} of ${field}`
+
+// ---- a record row (src/lib/records.ts): the claim, its place, its run
+
+import type { RecordRow } from './records.ts'
+
+/** "39 games with 10+ carries in his first 140 starts", "250 receptions in 36 games", "14 rushing TDs through CAR's first 15 games of 2011" */
+export function recordWords(r: RecordRow): string {
+  const s = r.shape, stat = statByKey(s.stat)
+  const win = s.seq === 'teamGames' ? `${r.team}'s first ${r.at} games of ${r.season}` : `his first ${r.at} ${seqWords(s.seq, r.at)}`
+  const scope = s.scope === 'all' ? ', playoffs included' : ''
+  if (s.how === 'sum') return `${countWords(r.value, stat)} through ${win}${scope}`
+  if (s.how === 'reach') return `${countWords(r.at, stat)} in ${r.value} ${seqWords(s.seq, r.value)}${scope}`
+  const t = testsWords(s.tests)
+  if (s.how === 'every') return `${t} in each of ${win}${scope}`
+  if (s.how === 'streak') return `${r.value} straight ${r.value === 1 ? 'game' : 'games'} with ${t} in ${win}${scope}`
+  return `${r.value} ${r.value === 1 ? 'game' : 'games'} with ${t} in ${win}${scope}`
+}
+
+/** "1st of 23, next 15", "one of 4 of 957", "a record at the time, 1st of 154" */
+export function placeWords(r: RecordRow): string {
+  const stat = statByKey(r.shape.stat)
+  const fmt = (v: number) => (r.shape.how === 'reach' ? `${v} ${seqWords(r.shape.seq, v)}` : r.shape.how === 'sum' ? countWords(v, stat) : String(v))
+  const who = r.season != null ? 'player-seasons' : 'careers'
+  if (r.kind === 'set') return `a record when he got there, 1st of ${r.field.toLocaleString('en-US')} ${who}${r.second != null ? `, past ${fmt(r.second)}` : ''}`
+  if (r.ties > 1) return `one of ${r.ties}, of ${r.field.toLocaleString('en-US')} ${who}`
+  return `1st of ${r.field.toLocaleString('en-US')} ${who}${r.second != null ? `, next ${fmt(r.second)}` : ''}`
+}
+
+/** "leads from start 112 to 144", "fastest to every milestone from 500 to 5,000", "at game 14 only", "and counting" */
+export function runWords(r: RecordRow, minN: number): string {
+  const s = r.shape, stat = statByKey(s.stat)
+  const unit = s.seq === 'teamGames' ? 'game' : seqWords(s.seq, 1)
+  if (s.how === 'reach') return r.lo === r.hi ? '' : `fastest to every milestone from ${(r.from ?? r.at).toLocaleString('en-US')} to ${countWords(r.at, stat)}`
+  const verb = r.kind === 'set' ? 'held' : 'leads'
+  const holes = r.holes ? ` (${r.holes} ${r.holes === 1 ? 'gap' : 'gaps'})` : ''
+  if (r.lo === r.hi) return `at ${unit} ${r.at} only`
+  const from = r.lo <= minN ? 'from the start' : `from ${unit} ${r.lo}`
+  return r.live ? `${verb} ${from}, and counting${holes}` : `${verb} ${from} to ${r.hi}${holes}`
+}
+
+/** "broken by Jalen Hurts 2023 (15, Dec 25, 2023)" */
+export function breakerWords(r: RecordRow): string {
+  if (!r.breaker) return ''
+  const stat = statByKey(r.shape.stat)
+  const v = r.shape.how === 'sum' ? countWords(r.breaker.value, stat) : String(r.breaker.value)
+  return `broken by ${r.breaker.name}${r.breaker.season ? ` ${r.breaker.season}` : ''}, ${v}, ${fmtDate(r.breaker.date)}`
+}

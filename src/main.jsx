@@ -8,9 +8,13 @@ import './styles.css'
 // Hydrate onto it rather than throwing it away. The dev server has no baked
 // markup, so fall back to a plain render there.
 const root = document.getElementById('root')
+// a player page carries its records file in the HTML, so the hydrate matches the prerender
+const data = document.getElementById('player-data')
+let preload = null
+try { preload = data ? JSON.parse(data.textContent) : null } catch {}
 const app = (
   <React.StrictMode>
-    <App />
+    <App path={window.location.pathname} preload={preload} />
   </React.StrictMode>
 )
 if (root.firstChild) hydrateRoot(root, app)
