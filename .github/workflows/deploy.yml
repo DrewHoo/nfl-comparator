@@ -4,10 +4,13 @@ on:
   push:
     branches: ['main']
   workflow_dispatch:
-  # For data that changes on a schedule (prices, standings), rebuild on a cron.
-  # The build step fetches and bakes it. Delete this block if the data is static.
-  # schedule:
-  #   - cron: '30 22 * * 1-5'
+  # Tuesday noon UTC, after Monday night: the scheduled build refetches the
+  # nflverse files and rebuilds the ledger before building (a manual run does
+  # too), so the week's
+  # games reach the site without a commit. A push builds from the committed
+  # ledgers, so a code change never waits on a download.
+  schedule:
+    - cron: '0 12 * * 2'
 
 permissions:
   contents: read
@@ -25,13 +28,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
       - run: npm ci
-      # If the build dies with "Cannot find module '../lightningcss.linux-x64-gnu.node'"
-      # (Tailwind v4, or anything else with a platform binary the macOS lockfile
-      # skipped), install the Linux binary explicitly:
-      # - run: npm install --no-save lightningcss-linux-x64-gnu
+      - if: github.event_name != 'push'
+        run: npm run fetch && npm run ledger
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

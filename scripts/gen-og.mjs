@@ -2,87 +2,88 @@
 //   public/og.png    1200x630, what X/Bluesky/LinkedIn/Reddit/iMessage show
 //   public/card.png  1200x750, the 8:5 cover for the index site's project card
 //
-// Two sizes because the index card crops covers to 8:5 with object-fit: cover,
-// so a 1200x630 image silently loses its top and bottom there. Same SVG,
-// parameterised by height; the taller one gets more room for the chart.
+// The composition is the real thing: the default board (quarterbacks by wins
+// through their first 150 starts, playoffs included) from src/data/QB.json
+// through src/lib/query.ts, drawn in the page's own look. It drifts as
+// results come in; re-run after a redesign or when a fresher board is worth
+// committing. Outputs are committed; CI does not regenerate them.
 //
-// Outputs are committed; CI does not regenerate them. Re-run after a redesign,
-// and open the PNGs: a line running off the edge is only visible if you look.
-import sharp from 'sharp'
-import { mkdirSync } from 'node:fs'
+// Text is drawn as glyph outlines through opentype.js (pinned to 1.3.4; 2.x
+// emits NaN path data), because sharp's librsvg never finds Graduate or Plex
+// Mono. The TTFs are committed under scripts/fonts/ (OFL).
+import { mkdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import opentype from 'opentype.js'
+import sharp from 'sharp'
 import config from '../site.config.js'
 import pkg from '../package.json' with { type: 'json' }
+import { decodeLedger } from '../src/lib/ledger.ts'
+import { evaluate, DEFAULT_QUERY } from '../src/lib/query.ts'
+import { queryWords } from '../src/lib/words.ts'
 
-const outDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'public')
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const outDir = resolve(ROOT, 'public')
 mkdirSync(outDir, { recursive: true })
 
-const FONT = "-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
-const MUTED = '#9ba3b5'
-const TEXT = '#ffffff'
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-
-// Break the title onto lines that fit the left column at the chosen size.
-function wrap(text, maxChars) {
-  const lines = []
-  let line = ''
-  for (const word of text.split(' ')) {
-    if ((line + ' ' + word).trim().length > maxChars && line) {
-      lines.push(line)
-      line = word
-    } else {
-      line = (line + ' ' + word).trim()
-    }
-  }
-  if (line) lines.push(line)
-  return lines
+const font = (f) => opentype.parse(readFileSync(resolve(ROOT, 'scripts/fonts', f)).buffer.slice(0))
+const FONT = {
+  Graduate: font('Graduate-Regular.ttf'),
+  Mono: font('IBMPlexMono-Regular.ttf'),
+  MonoBold: font('IBMPlexMono-SemiBold.ttf'),
+  Serif: font('SourceSerif4-Regular.ttf'),
+}
+const width = (str, name, size, spacing = 0) => FONT[name].getAdvanceWidth(str, size, { kerning: true, letterSpacing: spacing / size })
+function text(str, { x, y, font: name, size, fill, anchor = 'start', spacing = 0, opacity }) {
+  const f = FONT[name]
+  const opts = { kerning: true, letterSpacing: spacing / size }
+  const w = f.getAdvanceWidth(str, size, opts)
+  const x0 = anchor === 'middle' ? x - w / 2 : anchor === 'end' ? x - w : x
+  return `<path d="${f.getPath(str, x0, y, size, opts).toPathData(2)}" fill="${fill}"${opacity != null ? ` opacity="${opacity}"` : ''}/>`
 }
 
+const BG = '#282127', INK = '#efe6d9', MUTED = '#bfb2a6', FAINT = '#857a75', LINE = '#453a42', CREAM = '#f3e2bc', RUST = '#c36c36'
+
+const ledger = decodeLedger(JSON.parse(readFileSync(resolve(ROOT, 'src/data/QB.json'), 'utf8')))
+const query = { ...DEFAULT_QUERY, scope: 'all' }
+const board = evaluate(ledger, query)
+
 function render(W, H) {
-  const titleLines = wrap(config.title, 14)
-  if (titleLines.length > 3) throw new Error(`gen-og: title wraps to ${titleLines.length} lines; shorten it or lower the font size`)
-  const titleSize = titleLines.length === 1 ? 72 : titleLines.length === 2 ? 64 : 52
-  const titleTop = 150
-  const titleBottom = titleTop + titleLines.length * titleSize * 1.05
-  const chartTop = 110
-  const chartH = H - chartTop - 130
-  // Stylized series: the visual should say what kind of page this is
-  // without being any real row of your data. Replace with your own shape.
-  const pts = [0, 38, 76, 114, 152, 190, 228, 266, 304, 342, 380, 418, 456].map((x, i) => [
-    x,
-    chartH - 40 - (i * (chartH - 100)) / 12 + (i % 3 === 1 ? 24 : i % 3 === 2 ? -12 : 0),
-  ])
-  const d = pts.map(([x, y], i) => `${i ? 'L' : 'M'} ${x} ${y.toFixed(0)}`).join(' ')
-  const footerY = H - 50
-  if (titleBottom + 90 > footerY) throw new Error('gen-og: title and subtitle run into the footer')
-
-  return `
-<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  const L = 100, R = W - 100
+  const rowH = 42
+  const top = 258
+  const footerY = H - 36
+  const rows = board.ranked.slice(0, Math.floor((footerY - 30 - top) / rowH))
+  const parts = []
+  parts.push(`<rect width="${W}" height="${H}" fill="${BG}"/>`)
+  parts.push(`<rect width="${W}" height="${H}" fill="url(#glow)"/>`)
+  parts.push(text(`${config.domain.toUpperCase()} · 1999–${ledger.currentSeason}`, { x: W / 2, y: 58, font: 'Mono', size: 15, fill: FAINT, anchor: 'middle', spacing: 2.4 }))
+  parts.push(text(config.title, { x: W / 2, y: 132, font: 'Graduate', size: 66, fill: CREAM, anchor: 'middle', spacing: 2 }))
+  parts.push(text(queryWords(query), { x: W / 2, y: 182, font: 'Serif', size: 25, fill: INK, anchor: 'middle' }))
+  parts.push(text(config.ogSubtitle, { x: W / 2, y: 214, font: 'Serif', size: 18, fill: FAINT, anchor: 'middle' }))
+  // the board's header and rows
+  parts.push(`<line x1="${L}" y1="${top - 22}" x2="${R}" y2="${top - 22}" stroke="${LINE}" stroke-dasharray="1 3"/>`)
+  parts.push(text(`${board.ranked.length} CAREERS WITH THE WHOLE WINDOW`, { x: L, y: top - 4, font: 'Mono', size: 10.5, fill: FAINT, spacing: 1.4 }))
+  parts.push(text('WINS', { x: R, y: top - 4, font: 'Mono', size: 10.5, fill: FAINT, anchor: 'end', spacing: 1.4 }))
+  rows.forEach((r, i) => {
+    const y = top + rowH * (i + 1) - 12
+    const rank = `${r.tied ? 'T' : ''}${r.rank}`
+    parts.push(text(rank, { x: L + 4, y, font: 'Mono', size: 12, fill: r.rank === 1 ? CREAM : FAINT }))
+    parts.push(text(r.player.name, { x: L + 50, y, font: 'Serif', size: 22, fill: INK }))
+    parts.push(text(`${r.from}–${r.to}`, { x: L + 50 + width(r.player.name, 'Serif', 22) + 14, y, font: 'Mono', size: 10.5, fill: FAINT, spacing: 0.8 }))
+    parts.push(text(String(r.value), { x: R, y: y + 1, font: 'Graduate', size: 26, fill: CREAM, anchor: 'end' }))
+    parts.push(`<line x1="${L}" y1="${y + 14}" x2="${R}" y2="${y + 14}" stroke="${LINE}" stroke-dasharray="1 3"/>`)
+  })
+  parts.push(text(`${config.domain}/${pkg.name}`, { x: L, y: footerY, font: 'Mono', size: 13, fill: FAINT, spacing: 1 }))
+  parts.push(`<rect x="${R - 80}" y="${footerY - 9}" width="80" height="3" fill="${RUST}"/>`)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#11151c"/>
-      <stop offset="100%" stop-color="#0a0d12"/>
-    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="-0.2" r="0.9">
+      <stop offset="0%" stop-color="${CREAM}" stop-opacity="0.12"/>
+      <stop offset="65%" stop-color="${CREAM}" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <rect width="${W}" height="${H}" fill="url(#bg)"/>
-
-  <text x="60" y="100" font-family="${FONT}" font-size="20" fill="${MUTED}" font-weight="600" letter-spacing="3">${esc(config.domain.toUpperCase())}</text>
-  ${titleLines
-    .map((l, i) => `<text x="60" y="${titleTop + titleSize * (i + 0.9)}" font-family="${FONT}" font-size="${titleSize}" fill="${TEXT}" font-weight="700" letter-spacing="-1">${esc(l)}</text>`)
-    .join('\n  ')}
-  <text x="60" y="${titleBottom + 50}" font-family="${FONT}" font-size="24" fill="${TEXT}" font-weight="500">${esc(config.ogSubtitle)}</text>
-
-  <g transform="translate(620, ${chartTop})">
-    <rect x="0" y="0" width="520" height="${chartH}" rx="14" fill="#151921" stroke="rgba(255,255,255,0.08)"/>
-    <g transform="translate(32, 20)">
-      <path d="${d}" fill="none" stroke="${config.accent}" stroke-width="4" stroke-linejoin="round"/>
-      ${pts.map(([x, y]) => `<circle cx="${x}" cy="${y.toFixed(0)}" r="6" fill="${config.accent}" stroke="white" stroke-width="1.5"/>`).join('')}
-    </g>
-  </g>
-
-  <text x="60" y="${footerY}" font-family="${FONT}" font-size="18" fill="${MUTED}" font-weight="500">${esc(config.domain)}/${esc(pkg.name)}</text>
-  <rect x="60" y="${footerY + 16}" width="80" height="3" fill="${config.accent}"/>
+  ${parts.join('\n  ')}
 </svg>`
 }
 
