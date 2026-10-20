@@ -1,7 +1,8 @@
 // Runs after `vite build`. Bakes the rendered app into dist/index.html and
 // writes the <head> from site.config.js, then a page per player with a
 // records file (dist/player/<id>/index.html, the file embedded so the
-// hydrate matches), and the sitemap.
+// hydrate matches, and dist/player/<id>/og.png, his own social card), and
+// the sitemap.
 //
 // Without this the deployed page is `<div id="root"></div>` and every word on
 // it exists only after React runs. Google usually renders JS in a deferred
@@ -17,6 +18,8 @@ import config from '../site.config.js'
 import pkg from '../package.json' with { type: 'json' }
 import { decodePlayer, page } from '../src/lib/records.ts'
 import { placeWords, recordWords, POS_WORDS } from '../src/lib/words.ts'
+import { toPng } from './lib/og.mjs'
+import { playerCard } from './lib/og-player.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SLUG = pkg.name
@@ -38,8 +41,8 @@ const { default: App } = await vite.ssrLoadModule('/src/App.jsx')
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 
-/** the head for one page: its title, description, canonical and OG, the embeds, its JSON-LD */
-function headFor({ url, title, description, jsonLd }) {
+/** the head for one page: its title, description, canonical and OG (the board's card unless the page has its own), the embeds, its JSON-LD */
+function headFor({ url, title, description, jsonLd, image = { url: `${SITE}og.png`, alt: config.ogImageAlt } }) {
   return `
     <meta name="description" content="${esc(description)}" />
     <link rel="canonical" href="${url}" />
@@ -49,15 +52,15 @@ function headFor({ url, title, description, jsonLd }) {
     <meta property="og:title" content="${esc(title)}" />
     <meta property="og:description" content="${esc(description)}" />
     <meta property="og:url" content="${url}" />
-    <meta property="og:image" content="${SITE}og.png" />
+    <meta property="og:image" content="${image.url}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="${esc(config.ogImageAlt)}" />
+    <meta property="og:image:alt" content="${esc(image.alt)}" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${esc(title)}" />
     <meta name="twitter:description" content="${esc(description)}" />
-    <meta name="twitter:image" content="${SITE}og.png" />
+    <meta name="twitter:image" content="${image.url}" />
 
     <!-- Cross-site chrome served by the index site: back bar, comments, analytics. -->
     <script src="${ORIGIN}/embed/back-bar.js" async></script>
@@ -100,8 +103,15 @@ fs.writeFileSync(OUT, pageHtml({ title: config.title, head: headFor({ url: SITE,
 const words = appHtml.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length
 console.log(`prerendered ${(appHtml.length / 1024).toFixed(0)}KB into #root (~${words} words); head written for ${SITE}`)
 
-// a page per player with a records file (scripts/build-records.mjs)
+// a page per player with a records file (scripts/build-records.mjs), and his
+// card; the PNGs draw a few at a time, sharp's threads do the work
 const urls = [SITE]
+const pending = new Set()
+const draw = async (svg, file) => {
+  const p = toPng(svg, file).finally(() => pending.delete(p))
+  pending.add(p)
+  if (pending.size >= 8) await Promise.race(pending)
+}
 const playersDir = path.join(ROOT, 'dist/players')
 const index = fs.existsSync(path.join(playersDir, 'index.json')) ? JSON.parse(fs.readFileSync(path.join(playersDir, 'index.json'), 'utf8')) : []
 const t0 = Date.now()
@@ -128,11 +138,14 @@ for (const entry of index) {
   }
   const dir = path.join(ROOT, 'dist/player', entry.id)
   fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(path.join(dir, 'index.html'), pageHtml({ title, head: headFor({ url, title, description, jsonLd: ld }), appHtml: html, embed: file }))
+  const image = { url: `${url}og.png`, alt: face ? `${file.name}: ${recordWords(face)}, ${placeWords(face)}. His page on ${config.title}, on a dark background.` : `${file.name}'s page on ${config.title}, on a dark background.` }
+  fs.writeFileSync(path.join(dir, 'index.html'), pageHtml({ title, head: headFor({ url, title, description, jsonLd: ld, image }), appHtml: html, embed: file }))
+  await draw(playerCard(file, fams, { title: config.title, domain: config.domain, slug: SLUG }), path.join(dir, 'og.png'))
   urls.push(url)
 }
+await Promise.all(pending)
 await vite.close()
-console.log(`prerendered ${index.length} player pages in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
+console.log(`prerendered ${index.length} player pages, each with its card, in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
 
 // the sitemap: what Search Console wants submitted, and it carries lastmod
 const lastmod = new Date().toISOString().slice(0, 10)

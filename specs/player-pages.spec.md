@@ -309,6 +309,14 @@ the page's cut is shown when it is the open one; and a player finder (`PlayerFin
 the team picker's shape: a filter box over `players/index.json`, fetched on first open)
 sits in the dateline of the board and of every player page.
 
+Each player page has its own social card, drawn at build by the prerender to
+`dist/player/<id>/og.png`: his name, the career line, and the faces of his five best
+families with their values, in the page's look (`scripts/lib/og-player.mjs`, on the
+drawing kit `scripts/lib/og.mjs` that the board's committed `og.png` now shares). The
+page's `og:image` and `twitter:image` point at it; the alt text is the face row. A
+board link with a query in the URL still unfurls as the default board: the host is
+static, so a query string can't carry its own image.
+
 Not done: the weekly digest (records broken, within reach), a rookie field slot,
-`since`, a per-player OG image, and the `seasonW` knob. The open questions above stand; the tuner
-is where they get answered.
+`since`, and the `seasonW` knob. The open questions above stand; the tuner is where
+they get answered.
