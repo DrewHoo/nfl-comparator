@@ -26,6 +26,14 @@ const SLUG = pkg.name
 const ORIGIN = `https://${config.domain}`
 const SITE = `${ORIGIN}/${SLUG}/`
 const OUT = path.join(ROOT, 'dist/index.html')
+const DATA = path.join(ROOT, 'src/data')
+
+// the ledgers as files, for the share worker (workers/share), which runs the
+// engine at the edge on the same JSON the page bundles
+fs.mkdirSync(path.join(ROOT, 'dist/data'), { recursive: true })
+for (const f of fs.readdirSync(DATA).filter((f) => /^[A-Z]+\.json$/.test(f))) fs.copyFileSync(path.join(DATA, f), path.join(ROOT, 'dist/data', f))
+const { firstSeason, currentSeason } = JSON.parse(fs.readFileSync(path.join(DATA, 'QB.json'), 'utf8'))
+const SEASONS = `${firstSeason}–${currentSeason}`
 
 if (config.domain === 'example.com') {
   console.warn('prerender: site.config.js still says example.com; the canonical and OG URLs will be wrong until you set your domain')
@@ -140,7 +148,7 @@ for (const entry of index) {
   fs.mkdirSync(dir, { recursive: true })
   const image = { url: `${url}og.png`, alt: face ? `${file.name}: ${recordWords(face)}, ${placeWords(face)}. His page on ${config.title}, on a dark background.` : `${file.name}'s page on ${config.title}, on a dark background.` }
   fs.writeFileSync(path.join(dir, 'index.html'), pageHtml({ title, head: headFor({ url, title, description, jsonLd: ld, image }), appHtml: html, embed: file }))
-  await draw(playerCard(file, fams, { title: config.title, domain: config.domain, slug: SLUG }), path.join(dir, 'og.png'))
+  await draw(playerCard(file, fams, { seasons: SEASONS }), path.join(dir, 'og.png'))
   urls.push(url)
 }
 await Promise.all(pending)

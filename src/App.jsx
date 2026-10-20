@@ -45,6 +45,7 @@ export default function App({ path = '', preload = null }) {
 function BoardApp() {
   const [query, setQuery] = useState(DEFAULT_QUERY)
   const [open, setOpen] = useState(null)
+  const [vs, setVs] = useState(null)
   const [ledger, setLedger] = useState(QB)
   const [copied, setCopied] = useState(false)
   const [pages, setPages] = useState(null)
@@ -58,6 +59,7 @@ function BoardApp() {
     const s = parseUrl(window.location.search)
     setQuery(s.query)
     setOpen(s.open)
+    setVs(s.vs)
     booted.current = true
     track('query', { words: queryWords(s.query) })
   }, [])
@@ -77,15 +79,22 @@ function BoardApp() {
   const change = (q) => {
     const next = normalize(q)
     setQuery(next)
-    if (next.pos !== query.pos) setOpen(null)
-    writeUrl(toUrl({ query: next, open: next.pos !== query.pos ? null : open }), 'replace')
+    if (next.pos !== query.pos) { setOpen(null); setVs(null) }
+    writeUrl(toUrl({ query: next, open: next.pos !== query.pos ? null : open, vs: next.pos !== query.pos ? null : vs }), 'replace')
     track('query', { words: queryWords(next) })
   }
   const openRow = (key) => {
     const next = open === key ? null : key
     setOpen(next)
+    setVs(null)
     writeUrl(toUrl({ query, open: next }), 'replace')
     if (next) track('open', { player: next })
+  }
+  // the peer the panel reads against, in the URL so a shared link opens the same comparison
+  const setPeer = (key) => {
+    setVs(key)
+    writeUrl(toUrl({ query, open, vs: key }), 'replace')
+    track('peer', { player: open, vs: key })
   }
   const share = async () => {
     const url = window.location.href
@@ -110,7 +119,7 @@ function BoardApp() {
         Same point in the career, every {query.seq === 'teamGames' ? 'season' : 'career'} since {query.since ?? 1999}.
         {board && board.ranked[0] && board.ranked[0].value != null && <> The leader: <b>{board.ranked[0].player.name}</b>, {board.ranked[0].value.toLocaleString('en-US')}.</>}
       </p>
-      {board ? <Board board={board} query={query} open={open} onOpen={openRow} panel={row && <Panel key={row.key} row={row} board={board} query={query} ledger={ledger} hasPage={pages?.has(row.player.id) ?? false} onClose={() => openRow(row.key)} onOpen={openRow} />} /> : <p className="loading">loading {query.pos}s…</p>}
+      {board ? <Board board={board} query={query} open={open} onOpen={openRow} panel={row && <Panel key={row.key} row={row} board={board} query={query} ledger={ledger} peerKey={vs} onPeer={setPeer} hasPage={pages?.has(row.player.id) ?? false} onClose={() => openRow(row.key)} onOpen={openRow} />} /> : <p className="loading">loading {query.pos}s…</p>}
       <Notes ledger={QB} />
     </main>
   )

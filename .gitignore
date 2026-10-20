@@ -13,3 +13,6 @@ data/raw/
 public/players/
 data/build/
 .claude/
+
+# wrangler dev state
+.wrangler/

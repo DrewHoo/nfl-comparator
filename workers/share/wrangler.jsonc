@@ -1,0 +1,13 @@
+{
+  // The share worker: a shared board or comparison unfurls as itself, in
+  // front of GitHub Pages. Deploy with: npx wrangler deploy -c workers/share/wrangler.jsonc
+  "name": "nfl-comparator-share",
+  "main": "index.ts",
+  "compatibility_date": "2026-10-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [{ "pattern": "drewhoover.com/nfl-comparator/*", "zone_name": "drewhoover.com" }],
+  "workers_dev": false,
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  // the card's fonts ride in the bundle (scripts/fonts/, the site's own four); resvg's wasm imports as a module
+  "rules": [{ "type": "Data", "globs": ["**/*.ttf"], "fallthrough": true }]
+}

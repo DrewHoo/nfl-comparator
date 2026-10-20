@@ -116,3 +116,17 @@ export function breakerWords(r: RecordRow): string {
   const v = r.shape.how === 'sum' ? countWords(r.breaker.value, stat) : String(r.breaker.value)
   return `broken by ${r.breaker.name}${r.breaker.season ? ` ${r.breaker.season}` : ''}, ${v}, ${fmtDate(r.breaker.date)}`
 }
+
+// ---- the short form, for a card's heading and a title
+
+/** "most wins through 150 starts", "fastest to 250 receptions", "most games with 300+ passing yards in a team's first 5 games" */
+export function headWords(q: Query): string {
+  const stat = statByKey(q.stat)
+  const win = q.seq === 'teamGames' ? `a team's first ${q.n} games` : `${q.n} ${seqWords(q.seq, q.n)}`
+  if (q.how === 'sum') return `${q.dir} ${stat.noun} through ${win}`
+  if (q.how === 'reach') return `${q.dir === 'fewest' ? 'fastest' : 'slowest'} to ${countWords(q.n, stat)}`
+  const t = testsWords(q.tests)
+  if (q.how === 'every') return `${t} in each of ${q.seq === 'teamGames' ? win : `the first ${win}`}`
+  if (q.how === 'streak') return `longest streak with ${t} in ${q.seq === 'teamGames' ? win : `the first ${win}`}`
+  return `${q.dir} games with ${t} in ${q.seq === 'teamGames' ? win : `the first ${win}`}`
+}

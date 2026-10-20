@@ -1,7 +1,13 @@
 // The social-card drawing kit shared by scripts/gen-og.mjs (the board's
 // committed og.png and card.png) and scripts/prerender.mjs (a card per
 // player page, drawn at build). One palette, the page's fonts as glyph
-// outlines, and the frame every card sits in.
+// outlines, and the frame every card sits in. The worker's on-demand cards
+// (workers/share/card.ts) follow the same layout in satori HTML.
+//
+// Every meaningful glyph stays inside the centered 720px column (x 240–960
+// on a 1200 canvas): Reddit's compact feed center-crops the 1.91:1 card to
+// a near-square thumbnail, and a safe-zone layout survives any such crop.
+// Streak King learned that one the hard way.
 //
 // Text is drawn as glyph outlines through opentype.js (pinned to 1.3.4; 2.x
 // emits NaN path data), because sharp's librsvg never finds Graduate or Plex
@@ -22,6 +28,11 @@ export const FONT = {
 }
 
 export const BG = '#282127', INK = '#efe6d9', MUTED = '#bfb2a6', FAINT = '#857a75', LINE = '#453a42', CREAM = '#f3e2bc', RUST = '#c36c36'
+
+/** the safe column: 720 wide, centered */
+export const SAFE = 720
+export const safeL = (W) => Math.round(W / 2 - SAFE / 2)
+export const safeR = (W) => safeL(W) + SAFE
 
 export const width = (str, name, size, spacing = 0) => FONT[name].getAdvanceWidth(str, size, { kerning: true, letterSpacing: spacing / size })
 
@@ -49,13 +60,28 @@ export function fit(str, name, size, maxW, spacing = 0) {
 }
 
 /** the biggest size at or under `size` that fits maxW */
-export function sizeToFit(str, name, size, maxW, spacing = 0, min = 24) {
+export function sizeToFit(str, name, size, maxW, spacing = 0, min = 22) {
   let s = size
   while (s > min && width(str, name, s, spacing) > maxW) s -= 2
   return s
 }
 
-export const dashed = (x1, y, x2) => `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${LINE}" stroke-dasharray="1 3"/>`
+export const dashed = (x1, y, x2) => `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${LINE}" stroke-dasharray="1 4"/>`
+
+/** the top every card shares: the site's name in rust, the heading, a small line; returns the parts and the y the body starts at */
+export function masthead(W, { heading, sub, headingSize = 38 }) {
+  const parts = [
+    text('NFL COMPARATOR', { x: W / 2, y: 70, font: 'MonoBold', size: 16, spacing: 4, fill: RUST, anchor: 'middle' }),
+    text(heading, { x: W / 2, y: 134, font: 'Graduate', size: sizeToFit(heading, 'Graduate', headingSize, SAFE), fill: CREAM, anchor: 'middle' }),
+  ]
+  if (sub) parts.push(text(fit(sub.toUpperCase(), 'Mono', 14, SAFE, 2), { x: W / 2, y: 168, font: 'Mono', size: 14, spacing: 2, fill: FAINT, anchor: 'middle' }))
+  return parts
+}
+
+/** the footer every card shares, centered: the seasons and the site's path */
+export function footer(W, H, words) {
+  return [text(words.toUpperCase(), { x: W / 2, y: H - 30, font: 'Mono', size: 14, spacing: 2, fill: FAINT, anchor: 'middle' })]
+}
 
 /** the frame: the dark field with the glow, then the parts */
 export function frame(W, H, parts) {
@@ -70,15 +96,6 @@ export function frame(W, H, parts) {
   <rect width="${W}" height="${H}" fill="url(#glow)"/>
   ${parts.join('\n  ')}
 </svg>`
-}
-
-/** the footer every card shares: the site's path left, the rust rule right */
-export function footer(W, H, path) {
-  const L = 100, R = W - 100, y = H - 36
-  return [
-    text(path, { x: L, y, font: 'Mono', size: 13, fill: FAINT, spacing: 1 }),
-    `<rect x="${R - 80}" y="${y - 9}" width="80" height="3" fill="${RUST}"/>`,
-  ]
 }
 
 export const toPng = (svg, file) => sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(file)

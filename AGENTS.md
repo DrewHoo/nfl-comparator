@@ -124,6 +124,12 @@ can surprise you. Add to it whenever a gate or a reader's correction teaches us 
   committed (`gen-og`), the player cards are drawn in the prerender (642 in ~7 s,
   eight at a time; the glyph paths are the cost, not the PNG). The favicon is the
   index site's, copied by `gen-favicon`.
+- The worker's cards are satori HTML (workers-og): every div with children needs
+  `display:flex`; resvg draws no text inside a nested SVG image, so the chart's labels
+  are HTML beside it; `wrangler dev` logs "initWasm() can be used only once" on a
+  second render and still returns the PNG. The worker's subrequest to the origin
+  drops `accept-encoding`, or HTMLRewriter gets a gzip body from a local origin and
+  rewrites nothing.
 - Vite 8 is rolldown: the per-position chunk is `build.rolldownOptions.output.codeSplitting`
   (`advancedChunks` is deprecated and warns).
 - The dev-server preview config is `.claude/launch.json` (port 5175, gitignored).

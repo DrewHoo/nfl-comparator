@@ -313,9 +313,15 @@ Each player page has its own social card, drawn at build by the prerender to
 `dist/player/<id>/og.png`: his name, the career line, and the faces of his five best
 families with their values, in the page's look (`scripts/lib/og-player.mjs`, on the
 drawing kit `scripts/lib/og.mjs` that the board's committed `og.png` now shares). The
-page's `og:image` and `twitter:image` point at it; the alt text is the face row. A
-board link with a query in the URL still unfurls as the default board: the host is
-static, so a query string can't carry its own image.
+page's `og:image` and `twitter:image` point at it; the alt text is the face row. Every
+card keeps its glyphs inside the centered 720px column, the way Streak King's do, since
+Reddit's compact feed crops the card to a near-square.
+
+A board link with a query in the URL, and a comparison (`t`, and now `vs` for the peer),
+unfurl as themselves through the share worker (`workers/share/`, Streak King's pattern):
+it rewrites the head from `compare.ts` and draws the card on demand from the ledger the
+prerender publishes at `dist/data/<POS>.json`. The comparison card is the panel's two
+sides and its chart. The panel's reading moved into `compare.ts` so both say the same.
 
 Not done: the weekly digest (records broken, within reach), a rookie field slot,
 `since`, and the `seasonW` knob. The open questions above stand; the tuner is where
