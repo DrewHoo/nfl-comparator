@@ -89,13 +89,17 @@ export function normalize(q: Query): Query {
   return out
 }
 
-const holds = (g: Game, tests: Test[]): boolean =>
-  tests.every((t) => { const v = statByKey(t.stat).read(g); return v >= t.min && (t.max == null || v <= t.max) })
+/** the player did enough in the game for a clean line (no interceptions, no giveaways) to mean something: a one-attempt relief appearance passes no clean test */
+export const played = (g: Game, pos: Pos): boolean => (pos === 'QB' ? g.att >= 10 : pos === 'RB' ? g.car + g.tgt >= 5 : g.tgt >= 3)
+
+/** the per-game tests all hold; a test with max 0 also needs the game played */
+export const holds = (g: Game, tests: Test[], pos: Pos): boolean =>
+  tests.every((t) => { const v = statByKey(t.stat).read(g); return v >= t.min && (t.max == null || (v <= t.max && (t.max > 0 || played(g, pos)))) })
 
 const inScope = (g: Game, scope: Scope) => scope === 'all' || !g.post
 
 /** the sequence items of a career: games, starts, or seasons (each a list of games) */
-function items(p: Player, q: Query): Game[][] {
+export function items(p: Player, q: Pick<Query, 'seq' | 'scope'>): Game[][] {
   const gs = p.games.filter((g) => inScope(g, q.scope))
   if (q.seq === 'starts') return gs.filter((g) => g.started === true).map((g) => [g])
   if (q.seq === 'seasons') {
@@ -128,7 +132,7 @@ function measure(seqItems: Game[][], q: Query, stat: Stat, complete: boolean, le
   // a season window is complete once the season is over
   const done = complete && (q.seq !== 'seasons' || reached < q.n || (win[q.n - 1]?.[0]?.season ?? 0) < ledger.currentSeason)
   if (q.how === 'sum') return { value: games.reduce((s, g) => s + stat.read(g), 0), reached, complete: done, all: false, games }
-  const flags = win.map((it) => it.some((g) => holds(g, q.tests)))
+  const flags = win.map((it) => it.some((g) => holds(g, q.tests, q.pos)))
   const count = flags.filter(Boolean).length
   if (q.how === 'count') return { value: count, reached, complete: done, all: count === q.n, games }
   if (q.how === 'every') return { value: count, reached, complete: done, all: done && count === q.n, games }
@@ -175,7 +179,7 @@ export function evaluate(ledger: Ledger, raw: Query): Board {
           continue
         }
         const flagsByTgn = new Array<boolean>(reachedN).fill(false)
-        for (const g of own) if (g.tgn >= 1 && g.tgn <= reachedN) flagsByTgn[g.tgn - 1] = holds(g, q.tests)
+        for (const g of own) if (g.tgn >= 1 && g.tgn <= reachedN) flagsByTgn[g.tgn - 1] = holds(g, q.tests, q.pos)
         const count = flagsByTgn.filter(Boolean).length
         const value = q.how === 'sum' ? own.reduce((s, g) => s + stat.read(g), 0) : q.how === 'streak' ? longestRun(flagsByTgn) : count
         push({ key: `${p.id}:${season}`, player: p, season, value, reached: reachedN, complete, all: (q.how === 'every' || q.how === 'count') && complete && count === q.n, games: own, from: season, to: season, team, ...blank })

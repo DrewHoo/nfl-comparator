@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react'
 import { Picker } from './Picker.jsx'
 import { CloseIcon } from './Icons.jsx'
-import { crossings, curve, toMatch } from '../lib/query.ts'
+import { crossings, curve, toMatch, holds as holdsAll } from '../lib/query.ts'
 import { statByKey, countWords } from '../lib/stats.ts'
 import { rowName, rowWords, rankWords, seqWords, testsWords } from '../lib/words.ts'
 import { fmtDate } from '../lib/ledger.ts'
@@ -40,7 +40,7 @@ function Ledger({ r, q }) {
   const isTest = q.how === 'count' || q.how === 'every' || q.how === 'streak'
   const games = [...r.games].reverse()
   const shown = all ? games : games.slice(0, 10)
-  const holds = (g) => q.tests.every((t) => { const v = statByKey(t.stat).read(g); return v >= t.min && (t.max == null || v <= t.max) })
+  const holds = (g) => holdsAll(g, q.tests, q.pos)
   return (
     <div className="ledger">
       <div className="xrow xhead"><span>#</span><span>date</span><span>game</span><span>{isTest ? testsWords(q.tests) : stat.noun}</span></div>
@@ -61,7 +61,7 @@ function Ledger({ r, q }) {
   )
 }
 
-export function Panel({ row, board, query, ledger, onClose, onOpen }) {
+export function Panel({ row, board, query, ledger, hasPage = false, onClose, onOpen }) {
   const q = query
   const field = board.ranked.length
   const career = q.seq !== 'teamGames'
@@ -83,7 +83,7 @@ export function Panel({ row, board, query, ledger, onClose, onOpen }) {
       <div className="panel-head">
         <div className="panel-id">
           <span className="panel-name">{rowName(row)}</span>
-          <span className="panel-meta">{ledger.pos} · {row.player.games[0].season}–{row.player.games[row.player.games.length - 1].season}{age}</span>
+          <span className="panel-meta">{ledger.pos} · {row.player.games[0].season}–{row.player.games[row.player.games.length - 1].season}{age}{hasPage && <> · <a className="plink" href={`${import.meta.env.BASE_URL}player/${row.player.id}/`}>what he leads →</a></>}</span>
         </div>
         <button className="ico panel-close" onClick={onClose} aria-label="Close"><CloseIcon /></button>
       </div>

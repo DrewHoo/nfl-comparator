@@ -3,7 +3,9 @@ import { Sentence } from './components/Sentence.jsx'
 import { Board } from './components/Board.jsx'
 import { Panel } from './components/Panel.jsx'
 import { Notes } from './components/Notes.jsx'
+import { PlayerPage } from './components/PlayerPage.jsx'
 import { ShareIcon } from './components/Icons.jsx'
+import { PlayerFinder, loadIndex } from './components/PlayerFinder.jsx'
 import { decodeLedger } from './lib/ledger.ts'
 import { evaluate, normalize, DEFAULT_QUERY } from './lib/query.ts'
 import { parseUrl, toUrl } from './lib/url.ts'
@@ -25,12 +27,31 @@ async function loadLedger(pos) {
 
 const track = (name, props) => { try { window.dhAnalytics?.track(name, props) } catch {} }
 
-export default function App() {
+/** the route from a pathname: the board, or a player's page at player/<id>/ */
+export function parseRoute(path) {
+  const base = import.meta.env.BASE_URL
+  const rel = (path ?? '').startsWith(base) ? path.slice(base.length) : (path ?? '').replace(/^\//, '')
+  const m = /^player\/([^/]+)\/?$/.exec(rel)
+  return m ? { kind: 'player', id: decodeURIComponent(m[1]) } : { kind: 'board' }
+}
+
+/** `path` and `preload` come from the prerender or main.jsx, never from window during render */
+export default function App({ path = '', preload = null }) {
+  const route = parseRoute(path)
+  if (route.kind === 'player') return <PlayerPage id={route.id} preload={preload} />
+  return <BoardApp />
+}
+
+function BoardApp() {
   const [query, setQuery] = useState(DEFAULT_QUERY)
   const [open, setOpen] = useState(null)
   const [ledger, setLedger] = useState(QB)
   const [copied, setCopied] = useState(false)
+  const [pages, setPages] = useState(null)
   const booted = useRef(false)
+
+  // who has a page, so the panel links only where one exists; after mount, the prerender has no fetch
+  useEffect(() => { let live = true; loadIndex().then((list) => { if (live) setPages(new Set(list.map((p) => p.id))) }); return () => { live = false } }, [])
 
   // URL state after mount, never during render: the prerender has no window
   useEffect(() => {
@@ -77,6 +98,7 @@ export default function App() {
       <div className="dateline">
         <span>drewhoover.com · 1999–{QB.currentSeason} · updated {String(QB.builtAt).slice(0, 10)}</span>
         <span className="dateline-acts">
+          <PlayerFinder />
           <button className="ico" onClick={share} aria-label="Share this board"><ShareIcon /></button>
           {copied && <span className="toast">copied</span>}
         </span>
@@ -88,8 +110,7 @@ export default function App() {
         Same point in the career, every {query.seq === 'teamGames' ? 'season' : 'career'} since {query.since ?? 1999}.
         {board && board.ranked[0] && board.ranked[0].value != null && <> The leader: <b>{board.ranked[0].player.name}</b>, {board.ranked[0].value.toLocaleString('en-US')}.</>}
       </p>
-      {row && board && <Panel key={row.key} row={row} board={board} query={query} ledger={ledger} onClose={() => openRow(row.key)} onOpen={openRow} />}
-      {board ? <Board board={board} query={query} open={open} onOpen={openRow} /> : <p className="loading">loading {query.pos}s…</p>}
+      {board ? <Board board={board} query={query} open={open} onOpen={openRow} panel={row && <Panel key={row.key} row={row} board={board} query={query} ledger={ledger} hasPage={pages?.has(row.player.id) ?? false} onClose={() => openRow(row.key)} onOpen={openRow} />} /> : <p className="loading">loading {query.pos}s…</p>}
       <Notes ledger={QB} />
     </main>
   )
