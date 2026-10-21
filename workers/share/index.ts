@@ -5,7 +5,7 @@
 // page.
 //
 //   <head> rewrite  a board URL gets a title and description from its
-//                   query and its leader (src/lib/compare.ts boardText); a
+//                   query and its leader (src/lib/share.ts boardText); a
 //                   comparison gets both names, the claim and where the
 //                   curves met (compareText). og:image points at the card.
 //   /share/og.png   the board's top rows, or the comparison's two sides
@@ -24,16 +24,15 @@
 import { parseUrl, toUrl } from '../../src/lib/url.ts';
 import { decodeLedger, type Ledger, type LedgerFile, type Pos } from '../../src/lib/ledger.ts';
 import { evaluate, type Board, type Query, type Row } from '../../src/lib/query.ts';
-import { boardText, compare, compareText, peerOf } from '../../src/lib/compare.ts';
-import { POS_WORDS, rowWords, seqWords } from '../../src/lib/words.ts';
-import { headWords } from '../../src/lib/words.ts';
+import { compare, peerOf } from '../../src/lib/compare.ts';
+import { boardText, compareText } from '../../src/lib/share.ts';
+import { headWords, POS_WORDS, rowWords, seqWords } from '../../src/lib/words.ts';
 import { countWords, statByKey } from '../../src/lib/stats.ts';
 import { renderCard, type BoardCardRow, type Card } from './card.ts';
 
 interface Env { ORIGIN?: string }
 
 const BASE = '/nfl-comparator';
-const SITE = 'NFL Comparator';
 /** Bump on any change to what the card draws or how a URL reads; it keys the edge cache. */
 const CARD_VERSION = '2026-10-21a';
 
@@ -235,7 +234,7 @@ export default {
       const read = await readUrl(origin, url.search);
       if (!read) return res;
       if (agentOf(request.headers.get('user-agent')) !== 'browser') report(ctx, request, env, 'share unfurl', urlProps(url));
-      const text = read.row ? compareText(read.q, read.board, read.row, read.peer, SITE) : boardText(read.q, read.board, SITE);
+      const text = read.row ? compareText(read.q, read.board, read.row, read.peer) : boardText(read.q, read.board);
       const canonical = toUrl({ query: read.q, open: read.row?.key ?? null, vs: read.peer?.key ?? null });
       const img = `${origin}${BASE}/share/og.png${canonical}`;
       const pageUrl = `${origin}${BASE}/${canonical}`;

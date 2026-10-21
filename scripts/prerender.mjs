@@ -17,7 +17,8 @@ import { fileURLToPath } from 'node:url'
 import config from '../site.config.js'
 import pkg from '../package.json' with { type: 'json' }
 import { decodePlayer, page } from '../src/lib/records.ts'
-import { placeWords, recordWords, POS_WORDS } from '../src/lib/words.ts'
+import { placeWords, recordWords } from '../src/lib/words.ts'
+import { playerText } from '../src/lib/share.ts'
 import { toPng } from './lib/og.mjs'
 import { playerCard } from './lib/og-player.mjs'
 
@@ -129,10 +130,7 @@ for (const entry of index) {
   const html = renderToString(React.createElement(App, { path: `/${SLUG}/player/${entry.id}/`, preload: file }))
   const fams = page(decodePlayer(file), file.id, file.pos)
   const face = fams[0]?.best
-  const title = `${file.name} · ${config.title}`
-  const description = face
-    ? `${file.name}: ${recordWords(face)}, ${placeWords(face)}. Every comparison he leads among ${POS_WORDS[file.pos]} at the same point in the career, since 1999.`
-    : `Every comparison ${file.name} leads among ${POS_WORDS[file.pos]} at the same point in the career, since 1999.`
+  const { title, description } = playerText(file.name, file.pos, face, firstSeason, config.title)
   const ld = {
     '@context': 'https://schema.org',
     '@graph': [
