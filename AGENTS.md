@@ -11,6 +11,17 @@ can surprise you. Add to it whenever a gate or a reader's correction teaches us 
   of the day (STL, SD, OAK). Before `build-ledger.mjs` normalized the schedule to the
   current codes, 10,050 rows failed to join. The ledger uses the current code
   everywhere, so a 1999 Rams game reads "LA".
+- **The 2001 and 2002 files give a Jaguar's home games to the visitor.** In those two
+  seasons a Jacksonville player's row for a home game carries the opponent's code as
+  `team` and `JAX` as `opponent_team` (Brunell's 2001 week 1 reads PIT v JAX from
+  Pittsburgh's side); the away games are right. Joined as-is, his home results, start
+  flags and team game numbers were the opponent's and his page listed fifteen teams.
+  `build-ledger.mjs` (`SWAPPED`) swaps the two codes back for a player who has a JAX row
+  that season, or whose every row that season faces JAX while a neighbouring season has
+  him on JAX (Fred Taylor's two 2001 games were both at home); the swap runs only while
+  the files show the symptom (no JAX row in a JAX home game). After it Brunell's 2001 is
+  15 starts, 6–9, PFR's numbers. A player who faced the Jaguars and joined them in the
+  same season would get his visiting game flipped too; none has turned up.
 - **A row is a stat line, not an appearance.** nflverse's weekly stats have a row only
   when the player touched a play stat. KC's 2024 week 1 has 32 rows against 46 in the
   snap counts. So "games" here undercounts anyone who dressed and did nothing: Josh
@@ -118,6 +129,11 @@ can surprise you. Add to it whenever a gate or a reader's correction teaches us 
   `rtk proxy npx vitest run --reporter=verbose` to see which test failed and why.
 - Node 22 strips types, so `scripts/*.mjs` import `src/lib/*.ts` directly; no build
   step for a script.
+- `npm run typecheck` is two passes: the root tsconfig (`src/lib`, `src/hooks`, DOM
+  lib) and `workers/share/tsconfig.json` (the worker and the `src/lib` it bundles,
+  `@cloudflare/workers-types` in place of the DOM, because the two disagree on
+  `CacheStorage`). `npm run typecheck:worker` is the second alone. `wrangler` is a
+  devDependency pinned to the version `deploy.yml`'s worker job uses; bump both.
 - Text in the OG cards is glyph outlines through opentype.js pinned to 1.3.4 (2.x emits
   NaN paths) with the TTFs committed under `scripts/fonts/`, because sharp's librsvg
   never finds Google fonts. The kit is `scripts/lib/og.mjs`; the board's card is
