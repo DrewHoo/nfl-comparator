@@ -8,7 +8,7 @@ export default defineConfig({
   base: `/${pkg.name}/`,
   plugins: [react()],
   server: process.env.PORT ? { port: Number(process.env.PORT), strictPort: true } : {},
-  test: { environment: 'node', include: ['src/**/*.test.{ts,tsx,js,jsx}'] },
+  test: { environment: 'node', include: ['src/**/*.test.{ts,tsx,js,jsx}'], exclude: ['**/node_modules/**', '.claude/**', 'dist/**'] },
   // each position's ledger in its own chunk: the QB file loads with the page, the rest on demand
   build: {
     rolldownOptions: {

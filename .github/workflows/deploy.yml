@@ -65,5 +65,5 @@ jobs:
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          wranglerVersion: '4.147.0'
+          wranglerVersion: '4.151.3'
           command: deploy -c workers/share/wrangler.jsonc
