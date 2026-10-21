@@ -13,6 +13,9 @@
 //                   worker fetches the ledger the prerender publishes at
 //                   /data/<POS>.json, runs the site's own evaluate, and
 //                   draws. Cached at the edge under CARD_VERSION.
+//   analytics       one Mixpanel event per link preview (`share unfurl`,
+//                   crawlers only) and per card (`share card`), sent
+//                   server-side to the index site's project.
 //
 // Anything else, and anything that goes wrong, passes through untouched:
 // this worker must never be the reason the site is down. The player pages
@@ -33,6 +36,79 @@ const BASE = '/nfl-comparator';
 const SITE = 'NFL Comparator';
 /** Bump on any change to what the card draws or how a URL reads; it keys the edge cache. */
 const CARD_VERSION = '2026-10-21a';
+
+// Analytics: one Mixpanel event per link preview, sent server-side to the
+// index site's project (the public token its embed carries; a project token
+// only writes). The client embed never sees an unfurl, because the bot that
+// fetches a shared link runs no script, so this is the only place a share
+// can be counted. Nothing personal goes: the crawler's name, its user agent
+// only when it is a crawler (a person's browser string never goes, and
+// neither does an IP: ip=0 tells Mixpanel not to geolocate), the country
+// Cloudflare saw, the URL itself and its slots. A browser's visit is the
+// embed's to count, so the head rewrite reports crawlers only; the card is
+// reported whoever asked for it. A local origin (wrangler dev) reports nothing.
+const MIXPANEL_TOKEN = '1c6a0f45b8a5768185a8d9a2f4d65452';
+const AGENTS: [RegExp, string][] = [
+  [/Slackbot|Slack-ImgProxy/i, 'slack'],
+  [/Discordbot/i, 'discord'],
+  [/TelegramBot/i, 'telegram'],
+  [/WhatsApp/i, 'whatsapp'],
+  [/LinkedInBot/i, 'linkedin'],
+  [/redditbot/i, 'reddit'],
+  [/Bluesky/i, 'bluesky'],
+  [/Mastodon/i, 'mastodon'],
+  [/Facebot.*Twitterbot|Twitterbot.*Facebot/i, 'imessage'],
+  [/Twitterbot/i, 'twitter'],
+  [/facebookexternalhit|Facebot/i, 'facebook'],
+  [/Googlebot/i, 'google'],
+  [/bingbot/i, 'bing'],
+  [/Applebot/i, 'apple'],
+  [/bot|crawler|spider|preview|fetch|embed|scraper/i, 'other-bot'],
+];
+const agentOf = (ua: string | null): string => AGENTS.find(([re]) => re.test(ua ?? ''))?.[1] ?? 'browser';
+
+function report(ctx: ExecutionContext, request: Request, env: Env, event: string, props: Record<string, unknown>) {
+  if (env.ORIGIN) return;
+  try {
+    const ua = request.headers.get('user-agent');
+    const agent = agentOf(ua);
+    const body = [{
+      event,
+      properties: {
+        token: MIXPANEL_TOKEN,
+        distinct_id: `unfurl:${agent}`,
+        $insert_id: crypto.randomUUID(),
+        time: Math.floor(Date.now() / 1000),
+        site: 'nfl-comparator',
+        agent,
+        // the crawler's own string, so an unrecognized one ('other-bot') can
+        // be named and added to AGENTS; a browser's string stays private
+        crawler: agent === 'browser' ? null : (ua ?? '').slice(0, 200),
+        country: (request as Request & { cf?: { country?: string } }).cf?.country ?? null,
+        ...props,
+      },
+    }];
+    ctx.waitUntil(fetch('https://api.mixpanel.com/track?ip=0', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'text/plain' },
+      body: JSON.stringify(body),
+    }).then((r) => r.body?.cancel()).catch(() => {}));
+  } catch {}
+}
+/** The URL itself and its slots, for an event: the query's five, the open player, the peer. */
+const urlProps = (url: URL) => {
+  const q = url.searchParams;
+  const { query } = parseUrl(url.search);
+  return {
+    // the shared link as one string, and under Mixpanel's own name so its UI
+    // treats it as the event's URL
+    url: url.href,
+    $current_url: url.href,
+    path: url.pathname.replace(BASE, '') || '/',
+    pos: query.pos, stat: query.stat, how: query.how, n: query.n, seq: query.seq, scope: query.scope, dir: query.dir,
+    tests: q.get('tests'), since: query.since, t: q.get('t'), vs: q.get('vs'),
+  };
+};
 
 const edge = (ttl: number) => ({ cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': ttl, '400-599': 30 } } }) as RequestInit;
 // a fresh cache key each UTC day: GitHub Pages ignores query strings, and the
@@ -128,8 +204,9 @@ export default {
       try {
         const key = new Request(`${url.origin}${url.pathname}?v=${CARD_VERSION}&${url.searchParams}`, { method: 'GET' });
         const cached = await caches.default.match(key);
+        const read = cached ? null : await readUrl(origin, url.search);
+        report(ctx, request, env, 'share card', { ...urlProps(url), cached: !!cached, kind: url.searchParams.has('t') ? 'comparison' : 'board' });
         if (cached) return cached;
-        const read = await readUrl(origin, url.search);
         if (!read) return Response.redirect(`${origin}${BASE}/og.png`, 302);
         const card = read.row && read.peer ? compareCard(read.q, read.board, read.row, read.peer, read.ledger) : boardCard(read.q, read.board, read.ledger);
         const png = await renderCard(card).arrayBuffer();
@@ -157,6 +234,7 @@ export default {
       if (!(res.headers.get('content-type') ?? '').includes('text/html')) return res;
       const read = await readUrl(origin, url.search);
       if (!read) return res;
+      if (agentOf(request.headers.get('user-agent')) !== 'browser') report(ctx, request, env, 'share unfurl', urlProps(url));
       const text = read.row ? compareText(read.q, read.board, read.row, read.peer, SITE) : boardText(read.q, read.board, SITE);
       const canonical = toUrl({ query: read.q, open: read.row?.key ?? null, vs: read.peer?.key ?? null });
       const img = `${origin}${BASE}/share/og.png${canonical}`;
