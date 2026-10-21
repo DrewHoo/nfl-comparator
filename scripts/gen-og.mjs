@@ -2,8 +2,8 @@
 //   public/og.png    1200x630, what X/Bluesky/LinkedIn/Reddit/iMessage show
 //   public/card.png  1200x750, the 8:5 cover for the index site's project card
 //
-// The composition is the real thing: the default board (quarterbacks by wins
-// through their first 150 starts, playoffs included) from src/data/QB.json
+// The composition is the real thing: the page's default board (quarterbacks
+// by wins through their first 150 starts, regular season) from src/data/QB.json
 // through src/lib/query.ts, drawn in the page's own look. It drifts as
 // results come in; re-run after a redesign or when a fresher board is worth
 // committing. Outputs are committed; CI does not regenerate them. The player
@@ -27,7 +27,7 @@ const outDir = resolve(ROOT, 'public')
 mkdirSync(outDir, { recursive: true })
 
 const ledger = decodeLedger(JSON.parse(readFileSync(resolve(ROOT, 'src/data/QB.json'), 'utf8')))
-const query = { ...DEFAULT_QUERY, scope: 'all' }
+const query = DEFAULT_QUERY
 const board = evaluate(ledger, query)
 
 function render(W, H) {
@@ -37,7 +37,7 @@ function render(W, H) {
   const rows = board.ranked.slice(0, Math.floor((H - 60 - top) / rowH))
   const parts = masthead(W, {
     heading: headWords(query).replace(/^./, (c) => c.toUpperCase()),
-    sub: `${POS_WORDS[query.pos]} · playoffs included · ${board.ranked.length} careers with the whole window`,
+    sub: `${POS_WORDS[query.pos]} · ${query.scope === 'all' ? 'playoffs included' : 'regular season'} · ${board.ranked.length} careers with the whole window`,
   })
   rows.forEach((r, i) => {
     const y = top + rowH * i + 26
@@ -48,7 +48,7 @@ function render(W, H) {
     parts.push(text(String(r.value), { x: R, y: y + 1, font: 'Graduate', size: 26, fill: CREAM, anchor: 'end' }))
     if (r !== rows[rows.length - 1]) parts.push(dashed(L, y + 14, R))
   })
-  parts.push(...footer(W, H, `1999–${ledger.currentSeason} · ${config.domain}/${pkg.name}`))
+  parts.push(...footer(W, H, `${ledger.firstSeason}–${ledger.currentSeason} · ${config.domain}/${pkg.name}`))
   return frame(W, H, parts)
 }
 
