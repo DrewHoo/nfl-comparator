@@ -6,15 +6,18 @@
 // RECORDS literal to paste. The tuner re-scores and re-folds; it never
 // re-words a row (the build picked each row's N under the shipped knobs).
 import { useEffect, useMemo, useState } from 'react'
-import { ShareIcon } from './Icons.jsx'
+import { CoffeeIcon, ShareIcon } from './Icons.jsx'
 import { PlayerFinder } from './PlayerFinder.jsx'
+import { KOFI_URL } from './Notes.jsx'
+import { useShare } from '../hooks/useShare.ts'
+import { playerLead } from '../lib/share.ts'
+import { track } from '../lib/analytics.ts'
 import { RECORDS, KNOB_PATHS, decodePlayer, knobAt, page, withKnob, statOf } from '../lib/records.ts'
 import { statByKey } from '../lib/stats.ts'
 import { POS_WORDS, breakerWords, placeWords, recordWords, runWords } from '../lib/words.ts'
 import { toUrl } from '../lib/url.ts'
 
 const BASE = import.meta.env.BASE_URL
-const track = (name, props) => { try { window.dhAnalytics?.track(name, props) } catch {} }
 
 const KIND_WORDS = { held: 'leads', set: 'set it' }
 
@@ -88,11 +91,11 @@ function Tuner({ knobs, onChange }) {
   )
 }
 
-export function PlayerPage({ id, preload }) {
+export function PlayerPage({ id, preload, firstSeason }) {
   const [file, setFile] = useState(preload ?? null)
   const [knobs, setKnobs] = useState(RECORDS)
   const [tune, setTune] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const { copied, share: send } = useShare()
 
   useEffect(() => {
     if (file) return
@@ -123,9 +126,10 @@ export function PlayerPage({ id, preload }) {
 
   const rows = useMemo(() => (file && file !== 'missing' ? decodePlayer(file, knobs) : []), [file, knobs])
   const fams = useMemo(() => (file && file !== 'missing' ? page(rows, id, file.pos) : []), [rows, id, file])
-  const share = async () => {
-    try { await navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 1400) } catch {}
-    track('share', { player: id })
+  // the share sheet, or "text url" on the clipboard: the page's lead line
+  const share = () => {
+    send(file && file !== 'missing' ? playerLead(file.name, file.pos, fams[0]?.best, firstSeason) : window.location.href, window.location.href)
+    track('share player', { player: id })
   }
 
   const n = fams.reduce((s, f) => s + 1 + f.rest.length, 0)
@@ -135,6 +139,7 @@ export function PlayerPage({ id, preload }) {
         <span><a href={BASE}>← the board</a> · drewhoover.com</span>
         <span className="dateline-acts">
           <PlayerFinder current={id} />
+          <a className="ico" href={KOFI_URL} onClick={() => track('kofi', { from: 'icons player' })} aria-label="Buy me a coffee"><CoffeeIcon /></a>
           <button className="ico" onClick={share} aria-label="Share this page"><ShareIcon /></button>
           {copied && <span className="toast">copied</span>}
         </span>
@@ -146,7 +151,7 @@ export function PlayerPage({ id, preload }) {
           <h1>{file.name}</h1>
           <p className="pmeta">{POS_WORDS[file.pos].replace(/s$/, '')} · {file.from === file.to ? file.from : `${file.from}–${file.to}`} · {file.teams.join(', ')} · {file.games} games{file.active ? ' · active' : ''}</p>
           <p className="baserate">
-            Every comparison <b>{file.name}</b> leads among {POS_WORDS[file.pos]} since 1999: {n} {n === 1 ? 'claim' : 'claims'} in {fams.length} {fams.length === 1 ? 'family' : 'families'}, the best first.
+            Every comparison <b>{file.name}</b> leads among {POS_WORDS[file.pos]} since {firstSeason}: {n} {n === 1 ? 'claim' : 'claims'} in {fams.length} {fams.length === 1 ? 'family' : 'families'}, the best first.
             A row leads its field now, or set a record that was later broken. Each links to its board.
           </p>
           {tune && <Tuner knobs={knobs} onChange={changeKnobs} />}
@@ -154,7 +159,7 @@ export function PlayerPage({ id, preload }) {
           {fams.length === 0 && <p className="empty">Nothing he leads at any point.</p>}
           <p className="notes" style={{ marginTop: 28 }}>
             A lead is an interval: the stretch of N where he is first, worded at one N inside it. "One of 4" is a tie for first. A record "when he got there" was first among the careers that had reached that point by then.
-            Fields are careers that began in 1999 or later, or player-seasons where he played the window. The method is in the <a href={`${BASE}#method`}>board's notes</a>.
+            Fields are careers that began in {firstSeason} or later, or player-seasons where he played the window. The method is in the <a href={`${BASE}#method`}>board's notes</a>.
           </p>
         </>
       )}

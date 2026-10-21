@@ -2,14 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Sentence } from './components/Sentence.jsx'
 import { Board } from './components/Board.jsx'
 import { Panel } from './components/Panel.jsx'
-import { Notes } from './components/Notes.jsx'
+import { Notes, KOFI_URL } from './components/Notes.jsx'
 import { PlayerPage } from './components/PlayerPage.jsx'
-import { ShareIcon } from './components/Icons.jsx'
+import { CoffeeIcon, ShareIcon } from './components/Icons.jsx'
 import { PlayerFinder, loadIndex } from './components/PlayerFinder.jsx'
+import { useShare } from './hooks/useShare.ts'
 import { decodeLedger } from './lib/ledger.ts'
 import { evaluate, normalize, DEFAULT_QUERY } from './lib/query.ts'
 import { parseUrl, toUrl } from './lib/url.ts'
 import { queryWords } from './lib/words.ts'
+import { peerOf } from './lib/compare.ts'
+import { boardText, compareText, shareText } from './lib/share.ts'
+import { track } from './lib/analytics.ts'
 import { writeUrl } from './urlState.js'
 import qbFile from './data/QB.json'
 
@@ -25,8 +29,6 @@ async function loadLedger(pos) {
   return cache[pos]
 }
 
-const track = (name, props) => { try { window.dhAnalytics?.track(name, props) } catch {} }
-
 /** the route from a pathname: the board, or a player's page at player/<id>/ */
 export function parseRoute(path) {
   const base = import.meta.env.BASE_URL
@@ -38,7 +40,7 @@ export function parseRoute(path) {
 /** `path` and `preload` come from the prerender or main.jsx, never from window during render */
 export default function App({ path = '', preload = null }) {
   const route = parseRoute(path)
-  if (route.kind === 'player') return <PlayerPage id={route.id} preload={preload} />
+  if (route.kind === 'player') return <PlayerPage id={route.id} preload={preload} firstSeason={QB.firstSeason} />
   return <BoardApp />
 }
 
@@ -47,9 +49,10 @@ function BoardApp() {
   const [open, setOpen] = useState(null)
   const [vs, setVs] = useState(null)
   const [ledger, setLedger] = useState(QB)
-  const [copied, setCopied] = useState(false)
   const [pages, setPages] = useState(null)
   const booted = useRef(false)
+  const rootTitle = useRef(null)
+  const { copied, share: send } = useShare()
 
   // who has a page, so the panel links only where one exists; after mount, the prerender has no fetch
   useEffect(() => { let live = true; loadIndex().then((list) => { if (live) setPages(new Set(list.map((p) => p.id))) }); return () => { live = false } }, [])
@@ -60,6 +63,7 @@ function BoardApp() {
     setQuery(s.query)
     setOpen(s.open)
     setVs(s.vs)
+    rootTitle.current = document.title
     booted.current = true
     track('query', { words: queryWords(s.query) })
   }, [])
@@ -75,6 +79,14 @@ function BoardApp() {
 
   const board = useMemo(() => (ledger && ledger.pos === query.pos ? evaluate(ledger, query) : null), [ledger, query])
   const row = useMemo(() => (board && open ? [...board.ranked, ...board.onTheWay].find((r) => r.key === open) ?? null : null), [board, open])
+
+  // the tab's title says what the share worker would write for this address,
+  // so it never lags a picker change; the root address keeps the page's own
+  useEffect(() => {
+    if (!booted.current || !board) return
+    const shared = toUrl({ query, open: row?.key ?? null, vs })
+    document.title = !shared ? rootTitle.current : row ? compareText(query, board, row, peerOf(board, row, vs)).title : boardText(query, board).title
+  }, [board, query, row, vs])
 
   const change = (q) => {
     const next = normalize(q)
@@ -96,31 +108,37 @@ function BoardApp() {
     writeUrl(toUrl({ query, open, vs: key }), 'replace')
     track('peer', { player: open, vs: key })
   }
-  const share = async () => {
-    const url = window.location.href
-    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1400) } catch {}
-    track('share', { words: queryWords(query) })
+  // the share sheet, or "text url" on the clipboard: the open row's claim, else the sentence
+  const share = () => {
+    send(shareText(query, board, row), window.location.href)
+    track('share', { words: queryWords(query), player: open ?? undefined })
   }
 
   return (
     <main>
       <div className="dateline">
-        <span>drewhoover.com · 1999–{QB.currentSeason} · updated {String(QB.builtAt).slice(0, 10)}</span>
+        <span>{`drewhoover.com · ${QB.firstSeason}–${QB.currentSeason}`}<span className="dateline-upd"> · updated {String(QB.builtAt).slice(0, 10)}</span></span>
         <span className="dateline-acts">
           <PlayerFinder />
+          <a className="ico" href={KOFI_URL} onClick={() => track('kofi', { from: 'icons board' })} aria-label="Buy me a coffee"><CoffeeIcon /></a>
           <button className="ico" onClick={share} aria-label="Share this board"><ShareIcon /></button>
           {copied && <span className="toast">copied</span>}
         </span>
       </div>
       <h1>NFL Comparator</h1>
-      <Sentence query={query} onChange={change} />
+      <Sentence query={query} onChange={change} firstSeason={QB.firstSeason} />
       <p className="baserate">
         <span className="sr-only">{queryWords(query)}. </span>
-        Same point in the career, every {query.seq === 'teamGames' ? 'season' : 'career'} since {query.since ?? 1999}.
+        {`Same point in the career, every ${query.seq === 'teamGames' ? 'season' : 'career'} since ${query.since ?? QB.firstSeason}.`}
         {board && board.ranked[0] && board.ranked[0].value != null && <> The leader: <b>{board.ranked[0].player.name}</b>, {board.ranked[0].value.toLocaleString('en-US')}.</>}
       </p>
       {board ? <Board board={board} query={query} open={open} onOpen={openRow} panel={row && <Panel key={row.key} row={row} board={board} query={query} ledger={ledger} peerKey={vs} onPeer={setPeer} hasPage={pages?.has(row.player.id) ?? false} onClose={() => openRow(row.key)} onOpen={openRow} />} /> : <p className="loading">loading {query.pos}s…</p>}
       <Notes ledger={QB} />
+      <footer>
+        <a href="https://drewhoover.com/">drewhoover.com</a> · data rebuilt weekly in season ·{' '}
+        <a href="https://github.com/DrewHoo/nfl-comparator">source & receipts</a> ·{' '}
+        <a href={KOFI_URL} onClick={() => track('kofi', { from: 'footer' })}>buy me a coffee</a>
+      </footer>
     </main>
   )
 }
