@@ -1,15 +1,16 @@
 // The open player: the claim the row makes, a peer to read it against (the
-// leader by default), where their curves crossed, what the subject needs
-// over the next games to match the peer, and the window's games.
+// leader by default; `vs` in the URL names another), where their curves
+// crossed, what the subject needs over the next games to match the peer,
+// and the window's games. The reading itself is src/lib/compare.ts, shared
+// with the share worker so a link's card says what the panel shows.
 import { useMemo, useState } from 'react'
 import { Picker } from './Picker.jsx'
 import { CloseIcon } from './Icons.jsx'
-import { crossings, curve, toMatch, holds as holdsAll } from '../lib/query.ts'
+import { holds as holdsAll } from '../lib/query.ts'
+import { compare, crossingWords, matchWords, peerOf, peersOf } from '../lib/compare.ts'
 import { statByKey, countWords } from '../lib/stats.ts'
-import { rowName, rowWords, rankWords, seqWords, testsWords } from '../lib/words.ts'
+import { rowName, rowWords, rankWords, testsWords } from '../lib/words.ts'
 import { fmtDate } from '../lib/ledger.ts'
-
-const K = 5
 
 function Chart({ me, them, n, names }) {
   const len = Math.max(me.length, them.length, n)
@@ -61,20 +62,14 @@ function Ledger({ r, q }) {
   )
 }
 
-export function Panel({ row, board, query, ledger, hasPage = false, onClose, onOpen }) {
+export function Panel({ row, board, query, ledger, peerKey = null, onPeer, hasPage = false, onClose, onOpen }) {
   const q = query
   const field = board.ranked.length
   const career = q.seq !== 'teamGames'
-  const others = useMemo(() => [...board.ranked, ...board.onTheWay].filter((r) => r.key !== row.key).slice(0, 40), [board, row.key])
-  const [peerKey, setPeerKey] = useState(null)
-  const peer = others.find((r) => r.key === peerKey) ?? others[0] ?? null
-  const curves = useMemo(() => {
-    if (!career || !peer || q.how === 'every' || q.how === 'count' || q.how === 'streak') return null
-    const cq = q.how === 'reach' ? { ...q, how: 'sum' } : q
-    return { me: curve(row.player, cq), them: curve(peer.player, cq) }
-  }, [career, peer, q, row.player])
-  const xs = curves ? crossings(curves.me, curves.them).filter((c) => c.n <= Math.max(q.n, curves.me.length)).slice(-6).reverse() : []
-  const match = curves && q.how === 'sum' ? toMatch(curves.me.slice(0, Math.max(row.reached, Math.min(curves.me.length, q.n))), curves.them, K) : null
+  const others = useMemo(() => peersOf(board, row), [board, row])
+  const peer = useMemo(() => peerOf(board, row, peerKey), [board, row, peerKey])
+  const cmp = useMemo(() => (career && peer ? compare(row, peer, q) : null), [career, peer, q, row])
+  const xs = cmp ? cmp.xs : []
   const stat = statByKey(q.stat)
   const age = row.player.born ? ` · born ${row.player.born.slice(0, 4)}` : ''
 
@@ -93,24 +88,18 @@ export function Panel({ row, board, query, ledger, hasPage = false, onClose, onO
       {peer && (
         <div className="peer">
           <span>against</span>
-          <Picker value={peer.key} options={others.map((r) => ({ value: r.key, label: rowName(r), hint: r.value == null ? '' : String(r.value) }))} onChange={setPeerKey} ariaLabel="The peer" />
+          <Picker value={peer.key} options={others.map((r) => ({ value: r.key, label: rowName(r), hint: r.value == null ? '' : String(r.value) }))} onChange={onPeer} ariaLabel="The peer" />
           <span>{peer.value == null ? '' : `(${rowWords(peer, q)})`}</span>
         </div>
       )}
-      {curves && xs.length > 0 && (
+      {cmp && xs.length > 0 && (
         <ul className="xings">
-          {xs.map((c) => (
-            <li key={c.n}><span className="n">{seqWords(q.seq, 1)} {c.n}</span>{c.kind} <b>{peer.player.name}</b> at {countWords(c.value, stat)}</li>
-          ))}
+          {xs.map((c) => <li key={c.n}>{crossingWords(c, peer, q)}</li>)}
         </ul>
       )}
-      {curves && xs.length === 0 && <p className="track">Their curves never met{curves.me.length < 2 ? '' : ` in ${Math.min(curves.me.length, curves.them.length)} ${seqWords(q.seq, 2)}`}.</p>}
-      {match && (
-        <p className="track">
-          To match {peer.player.name}'s {countWords(curves.them[match.at - 1], stat)} at {seqWords(q.seq, 1)} {match.at}, {row.player.name} needs <b>{countWords(Math.max(0, match.need), stat)}</b> over his next {K} {seqWords(q.seq, K)}{match.need <= 0 ? ' (he is already past it)' : ''}.
-        </p>
-      )}
-      {curves && <Chart me={curves.me} them={curves.them} n={q.how === 'reach' ? Math.max(row.value ?? 0, peer.value ?? 0) : q.n} names={[row.player.name, peer.player.name]} />}
+      {cmp && xs.length === 0 && <p className="track">Their curves never met.</p>}
+      {cmp && matchWords(row, peer, cmp, q) && <p className="track">{matchWords(row, peer, cmp, q)}</p>}
+      {cmp && <Chart me={cmp.me} them={cmp.them} n={cmp.n} names={[row.player.name, peer.player.name]} />}
       <Ledger r={row} q={q} />
     </section>
   )

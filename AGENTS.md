@@ -118,9 +118,23 @@ can surprise you. Add to it whenever a gate or a reader's correction teaches us 
   `rtk proxy npx vitest run --reporter=verbose` to see which test failed and why.
 - Node 22 strips types, so `scripts/*.mjs` import `src/lib/*.ts` directly; no build
   step for a script.
-- Text in the OG card is glyph outlines through opentype.js pinned to 1.3.4 (2.x emits
+- Text in the OG cards is glyph outlines through opentype.js pinned to 1.3.4 (2.x emits
   NaN paths) with the TTFs committed under `scripts/fonts/`, because sharp's librsvg
-  never finds Google fonts. The favicon is the index site's, copied by `gen-favicon`.
+  never finds Google fonts. The kit is `scripts/lib/og.mjs`; the board's card is
+  committed (`gen-og`), the player cards are drawn in the prerender (642 in ~7 s,
+  eight at a time; the glyph paths are the cost, not the PNG). The favicon is the
+  index site's, copied by `gen-favicon`.
+- A card's heading is Georgia Bold, the page h1's face, read from the Mac's own copy
+  (`/System/Library/Fonts/Supplemental/Georgia Bold.ttf`, or `GEORGIA_BOLD`); it isn't
+  redistributable, so it's never committed. `gen-og` refuses to run without it, since
+  the committed images must carry the real face; the prerender's player cards fall
+  back to Graduate on CI, and the worker's cards use Graduate too.
+- The worker's cards are satori HTML (workers-og): every div with children needs
+  `display:flex`; resvg draws no text inside a nested SVG image, so the chart's labels
+  are HTML beside it; `wrangler dev` logs "initWasm() can be used only once" on a
+  second render and still returns the PNG. The worker's subrequest to the origin
+  drops `accept-encoding`, or HTMLRewriter gets a gzip body from a local origin and
+  rewrites nothing.
 - Vite 8 is rolldown: the per-position chunk is `build.rolldownOptions.output.codeSplitting`
   (`advancedChunks` is deprecated and warns).
 - The dev-server preview config is `.claude/launch.json` (port 5175, gitignored).
