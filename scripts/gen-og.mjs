@@ -18,9 +18,11 @@ import pkg from '../package.json' with { type: 'json' }
 import { decodeLedger } from '../src/lib/ledger.ts'
 import { evaluate, DEFAULT_QUERY } from '../src/lib/query.ts'
 import { headWords, POS_WORDS } from '../src/lib/words.ts'
-import { CREAM, FAINT, INK, dashed, footer, frame, masthead, safeL, safeR, text, toPng, width } from './lib/og.mjs'
+import { CREAM, FAINT, INK, dashed, footer, frame, hasTitleFont, masthead, safeL, safeR, text, toPng, width } from './lib/og.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+// the committed images carry the real heading face; a fallback would ship a different card
+if (!hasTitleFont()) throw new Error('gen-og: Georgia Bold missing; run on a Mac or set GEORGIA_BOLD to a Georgia Bold TTF')
 const outDir = resolve(ROOT, 'public')
 mkdirSync(outDir, { recursive: true })
 
@@ -34,7 +36,7 @@ function render(W, H) {
   const top = 206
   const rows = board.ranked.slice(0, Math.floor((H - 60 - top) / rowH))
   const parts = masthead(W, {
-    heading: headWords(query),
+    heading: headWords(query).replace(/^./, (c) => c.toUpperCase()),
     sub: `${POS_WORDS[query.pos]} · playoffs included · ${board.ranked.length} careers with the whole window`,
   })
   rows.forEach((r, i) => {

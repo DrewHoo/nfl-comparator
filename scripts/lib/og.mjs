@@ -12,7 +12,7 @@
 // Text is drawn as glyph outlines through opentype.js (pinned to 1.3.4; 2.x
 // emits NaN path data), because sharp's librsvg never finds Graduate or Plex
 // Mono. The TTFs are committed under scripts/fonts/ (OFL).
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import opentype from 'opentype.js'
@@ -20,12 +20,23 @@ import sharp from 'sharp'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const font = (f) => opentype.parse(readFileSync(resolve(ROOT, 'scripts/fonts', f)).buffer.slice(0))
+// The heading is Georgia Bold, the face the page's h1 and Hostile Territory's
+// poster use, read from the Mac's own copy (not redistributable, so never
+// committed here; GEORGIA_BOLD points at another copy). CI has no Georgia,
+// so the player cards it draws fall back to Graduate, which the worker's
+// cards use too.
+const GEORGIA_BOLD = process.env.GEORGIA_BOLD ?? '/System/Library/Fonts/Supplemental/Georgia Bold.ttf'
 export const FONT = {
   Graduate: font('Graduate-Regular.ttf'),
   Mono: font('IBMPlexMono-Regular.ttf'),
   MonoBold: font('IBMPlexMono-SemiBold.ttf'),
   Serif: font('SourceSerif4-Regular.ttf'),
+  Title: null,
 }
+if (existsSync(GEORGIA_BOLD)) FONT.Title = opentype.parse(readFileSync(GEORGIA_BOLD).buffer.slice(0))
+else { console.warn(`og: no Georgia Bold at ${GEORGIA_BOLD}; headings fall back to Graduate`); FONT.Title = FONT.Graduate }
+/** true when the heading face is the real one; gen-og refuses to commit a card without it */
+export const hasTitleFont = () => FONT.Title !== FONT.Graduate
 
 export const BG = '#282127', INK = '#efe6d9', MUTED = '#bfb2a6', FAINT = '#857a75', LINE = '#453a42', CREAM = '#f3e2bc', RUST = '#c36c36'
 
@@ -72,7 +83,7 @@ export const dashed = (x1, y, x2) => `<line x1="${x1}" y1="${y}" x2="${x2}" y2="
 export function masthead(W, { heading, sub, headingSize = 38 }) {
   const parts = [
     text('NFL COMPARATOR', { x: W / 2, y: 70, font: 'MonoBold', size: 16, spacing: 4, fill: RUST, anchor: 'middle' }),
-    text(heading, { x: W / 2, y: 134, font: 'Graduate', size: sizeToFit(heading, 'Graduate', headingSize, SAFE), fill: CREAM, anchor: 'middle' }),
+    text(heading, { x: W / 2, y: 134, font: 'Title', size: sizeToFit(heading, 'Title', headingSize, SAFE, 0.5), fill: CREAM, anchor: 'middle', spacing: 0.5 }),
   ]
   if (sub) parts.push(text(fit(sub.toUpperCase(), 'Mono', 14, SAFE, 2), { x: W / 2, y: 168, font: 'Mono', size: 14, spacing: 2, fill: FAINT, anchor: 'middle' }))
   return parts
