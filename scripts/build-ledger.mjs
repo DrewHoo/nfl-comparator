@@ -57,14 +57,59 @@ const people = new Map()
 for (const p of readCsv(path.join(RAW, 'players.csv.gz'))) people.set(p.gsis_id, p)
 
 const num = (v) => (v === '' || v === 'NA' ? 0 : Math.round(Number(v)))
+const statFile = (s) => path.join(RAW, `stats_player_week_${s}.csv.gz`)
+
+// nflverse's 2001 and 2002 weekly files give a Jaguar's home games to the
+// visitor: the row's team is the opponent's code and its opponent_team is
+// JAX (Brunell's 2001 week 1 reads PIT v JAX from PIT's side), so Brunell's
+// page listed fifteen teams and his home results were the opponent's. The
+// away games are right. A player is a Jaguar that season when any row of his
+// says team JAX, or when every row of his faces JAX and the season before or
+// after has him on JAX (Fred Taylor's two 2001 games were both at home). The
+// swap applies only while the files still show the symptom (no JAX row in a
+// JAX home game), so an upstream fix turns it off.
+const SWAPPED = { JAX: [2001, 2002] }
+const swapRows = new Set() // `${season}|${player_id}`: the player's rows facing the team that season are his own team's
+for (const [team, seasons] of Object.entries(SWAPPED)) {
+  const onTeam = new Map() // season -> Set of player ids with a row on the team
+  const near = [...new Set(seasons.flatMap((s) => [s - 1, s, s + 1]))].filter((s) => s >= FIRST_SEASON && s <= CURRENT_SEASON && fs.existsSync(statFile(s)))
+  const facing = new Map() // `${season}|${id}` -> [rows facing the team, rows in all]
+  for (const s of near) {
+    const ids = new Set()
+    let homeRows = 0
+    for (const r of readCsv(statFile(s))) {
+      if (r.team === team) { ids.add(r.player_id); if (byGame.get(r.game_id)?.g.home_team === team) homeRows++ }
+      if (!seasons.includes(s)) continue
+      const k = `${s}|${r.player_id}`
+      const f = facing.get(k) ?? [0, 0]
+      f[1]++
+      if (r.opponent_team === team) f[0]++
+      facing.set(k, f)
+    }
+    onTeam.set(s, ids)
+    if (seasons.includes(s) && homeRows > 0) { console.log(`${team} ${s}: ${homeRows} home rows on the team's side; the files are fixed upstream, no swap`); facing.clear() }
+  }
+  for (const s of seasons) {
+    const own = onTeam.get(s) ?? new Set()
+    const adjacent = new Set([...(onTeam.get(s - 1) ?? []), ...(onTeam.get(s + 1) ?? [])])
+    for (const [k, [vs, all]] of facing) {
+      const [season, id] = k.split('|')
+      if (Number(season) !== s || vs === 0) continue
+      if (own.has(id) || (vs === all && adjacent.has(id))) swapRows.add(k)
+    }
+    console.log(`${team} ${s}: ${[...swapRows].filter((k) => k.startsWith(`${s}|`)).length} players' home rows swapped to the team's side`)
+  }
+}
+
 const players = new Map() // id -> { id, name, born, posCount, rows }
 let dropped = 0
 for (let s = FIRST_SEASON; s <= CURRENT_SEASON; s++) {
-  const file = path.join(RAW, `stats_player_week_${s}.csv.gz`)
+  const file = statFile(s)
   if (!fs.existsSync(file)) continue
   for (const r of readCsv(file)) {
     const grp = groupOf(r.position)
     if (!grp) continue
+    if (SWAPPED[r.opponent_team]?.includes(s) && swapRows.has(`${s}|${r.player_id}`)) [r.team, r.opponent_team] = [r.opponent_team, r.team]
     const gm = byGame.get(r.game_id)
     if (!gm) { dropped++; continue }
     const { g, post, date } = gm
