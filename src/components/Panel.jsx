@@ -83,7 +83,7 @@ export function Panel({ row, board, query, ledger, peerKey = null, onPeer, hasPa
         <button className="ico panel-close" onClick={onClose} aria-label="Close"><CloseIcon /></button>
       </div>
       <p className="claim">
-        <b>{row.player.name}</b> {row.value == null ? 'has' : 'has'} {rowWords(row, q)}{row.complete && row.value != null ? <>, <b>{rankWords(row, field)}</b> {q.seq === 'teamGames' ? 'player-seasons' : 'careers'}{q.since ? ` since ${q.since}` : ' since 1999'}.</> : row.value == null ? '.' : <>, still inside the window.</>}
+        <b>{row.player.name}</b> {row.value == null ? 'has' : 'has'} {rowWords(row, q)}{row.complete && row.value != null ? <>, <b>{rankWords(row, field)}</b> {q.seq === 'teamGames' ? 'player-seasons' : 'careers'}{` since ${q.since ?? board.since}`}.</> : row.value == null ? '.' : <>, still inside the window.</>}
       </p>
       {peer && (
         <div className="peer">

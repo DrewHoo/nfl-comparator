@@ -2,6 +2,7 @@
 // against whom, every word that can change a Picker. The shape of the
 // sentence follows `how` (a total, a count of games, every game, a streak,
 // a race to a number); src/lib/words.ts says the same sentence in prose.
+import { useMemo } from 'react'
 import { Picker } from './Picker.jsx'
 import { Chevron } from './Icons.jsx'
 import { POSITIONS } from '../lib/ledger.ts'
@@ -27,8 +28,8 @@ const SCOPE_OPTIONS = [
   { value: 'all', label: 'playoffs included' },
 ]
 
-const ERA_OPTIONS = [
-  { value: 0, label: 'since 1999', hint: 'the whole ledger' },
+const eraOptions = (firstSeason) => [
+  { value: 0, label: `since ${firstSeason}`, hint: 'the whole ledger' },
   { value: 2001, label: 'since 2001' },
   { value: 2006, label: 'since 2006' },
   { value: 2011, label: 'since 2011' },
@@ -60,7 +61,8 @@ function NumberWord({ value, onChange, step = 1, wide, label }) {
   )
 }
 
-export function Sentence({ query, onChange }) {
+export function Sentence({ query, onChange, firstSeason }) {
+  const eras = useMemo(() => eraOptions(firstSeason), [firstSeason])
   const set = (patch) => onChange({ ...query, ...patch })
   const stats = statsFor(query.pos)
   const statOptions = stats.map((s) => ({ value: s.key, label: s.noun }))
@@ -121,7 +123,7 @@ export function Sentence({ query, onChange }) {
       <span>·</span>
       <Picker value={query.scope} options={SCOPE_OPTIONS} onChange={(scope) => set({ scope })} ariaLabel="Playoffs" />
       <span>·</span>
-      <Picker value={query.since ?? 0} options={ERA_OPTIONS} onChange={(v) => set({ since: v || null })} ariaLabel="Era" />
+      <Picker value={query.since ?? 0} options={eras} onChange={(v) => set({ since: v || null })} ariaLabel="Era" />
     </div>
   )
 }
