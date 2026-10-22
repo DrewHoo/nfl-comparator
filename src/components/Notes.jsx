@@ -10,6 +10,10 @@ export function Notes({ ledger }) {
       <section className="notes" aria-label="What to read next">
         <h2>What to read next</h2>
         <p>
+          <a href="https://drewhoover.com/nhl-comparator/">NHL Comparator</a> — the same comparator over every NHL
+          career since 1917-18, Gretzky and Howe included.
+        </p>
+        <p>
           <a href="https://drewhoover.com/wnba-comparator/">WNBA Comparator</a> — the same comparator over every WNBA
           career since 1997.
         </p>
@@ -72,7 +76,7 @@ export function Notes({ ledger }) {
           long the lead held, by how much, how plainly it reads) and folded to one row per claim.
         </p>
         <p>
-          A sibling of <a href="https://drewhoover.com/nba-comparator/">NBA Comparator</a>, <a href="https://drewhoover.com/wnba-comparator/">WNBA Comparator</a> and{' '}
+          A sibling of <a href="https://drewhoover.com/nhl-comparator/">NHL Comparator</a>, <a href="https://drewhoover.com/nba-comparator/">NBA Comparator</a>, <a href="https://drewhoover.com/wnba-comparator/">WNBA Comparator</a> and{' '}
           <a href="https://drewhoover.com/cfb-streak-king/">College Football Streak King</a>.
         </p>
       </section>
