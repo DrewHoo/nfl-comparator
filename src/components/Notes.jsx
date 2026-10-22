@@ -67,26 +67,63 @@ export function Notes({ ledger }) {
           Every row is a player's games in order, with the box-score line and the result, from the{' '}
           <a href="https://github.com/nflverse/nflverse-data/releases">nflverse</a> weekly player stats and schedule
           (CC BY 4.0), {ledger.firstSeason} to {ledger.currentSeason}, rebuilt from the files of {String(ledger.builtAt).slice(0, 10)}. Nothing free goes
-          earlier, so every claim here reads "since {ledger.firstSeason}" even when it would hold further back.
+          earlier, so every claim here reads "since {ledger.firstSeason}" even when it would hold further back. The sections
+          below say where the games come from, what the box score records, what the words mean, and where a published
+          number can differ.
         </p>
-        <p>
-          A <b>start</b> is the quarterback the schedule names for the game, which is the one who played most of it; Pro Football
-          Reference counts a starter who was pulled early (Brady in the 2005 finale), and this doesn't, so a start count can
-          run one or two off theirs. A <b>game</b> is one the player recorded a stat in, so a lineman's or a defender's games
-          are not here yet, and only quarterbacks have starts. A <b>win</b> is the result of a game in the sequence.
-          "Team games of a season" count the team's schedule, so a player who sat one has a gap the window still counts.
-          The regular season is the default; the word beside it switches the playoffs in.
-        </p>
-        <p>
-          Ranks are competition ranks, ties included. "Still inside the window" lists the players who haven't played the
-          whole window yet, with their total so far. The panel reads a row against a peer: where their curves met, and
-          what the player needs over the next five games to match the peer there.
-        </p>
-        <p>
-          A player's page (from his name in the panel) lists every comparison he leads: the stretch of N where he is first
-          under a sentence, and the records he set that were later broken. The rows are scored in bits (how many could have held it, how deep the window, how
-          long the lead held, by how much, how plainly it reads) and folded to one row per claim.
-        </p>
+
+        <details>
+          <summary>Where the games come from</summary>
+          <p>
+            nflverse's weekly player stats are the box score of every regular-season and playoff game since{' '}
+            {ledger.firstSeason}, one row per player per game, and its schedule carries the result and the two starting
+            quarterbacks. A row here is a game the player recorded a stat in; the stat rows and the schedule are joined on
+            the game, and the team codes follow the franchise (St. Louis's games are the Rams', San Diego's the Chargers',
+            Oakland's the Raiders'). The 2001 and 2002 files give a Jaguar's home games to the visitor, and those rows
+            are swapped back. A career that began before {ledger.firstSeason} sits out the career fields, since its
+            first N games are not in the files; its seasons still count in the player-season fields.
+          </p>
+        </details>
+
+        <details>
+          <summary>What the box score records, and since when</summary>
+          <p>
+            The passing line (attempts, completions, yards, touchdowns, interceptions, sacks taken), the rushing line
+            (carries, yards, touchdowns), the receiving line (targets, receptions, yards, touchdowns) and fumbles lost, every
+            game since {ledger.firstSeason}. A <b>game</b> is one the player recorded a stat in, so a lineman's or a
+            defender's games are not here yet, and only quarterbacks have starts.
+          </p>
+        </details>
+
+        <details>
+          <summary>What the words mean</summary>
+          <p>
+            A <b>start</b> is the quarterback the schedule names for the game, which is the one who played most of it. A{' '}
+            <b>win</b> is the result of a game in the sequence. "Team games of a season" count the team's schedule, so a
+            player who sat one has a gap the window still counts. The regular season is the default; the word beside it
+            switches the playoffs in.
+          </p>
+          <p>
+            Ranks are competition ranks, ties included. "Still inside the window" lists the players who haven't played the
+            whole window yet, with their total so far. The panel reads a row against a peer: where their curves met, and
+            what the player needs over the next five games to match the peer there.
+          </p>
+          <p>
+            A player's page (from his name in the panel) lists every comparison he leads: the stretch of N where he is first
+            under a sentence, and the records he set that were later broken. The rows are scored in bits (how many could have
+            held it, how deep the window, how long the lead held, by how much, how plainly it reads) and folded to one row
+            per claim.
+          </p>
+        </details>
+
+        <details>
+          <summary>Where a published number differs, and why</summary>
+          <p>
+            Pro Football Reference counts a starter who was pulled early (Brady in the 2005 finale), and this doesn't, so a
+            start count can run one or two off theirs; the schedule's starter is the one who played most of the game.
+          </p>
+        </details>
+
         <p>
           A sibling of <a href="https://drewhoover.com/nhl-comparator/">NHL Comparator</a>, <a href="https://drewhoover.com/nba-comparator/">NBA Comparator</a>, <a href="https://drewhoover.com/wnba-comparator/">WNBA Comparator</a> and{' '}
           <a href="https://drewhoover.com/cfb-streak-king/">College Football Streak King</a>.
