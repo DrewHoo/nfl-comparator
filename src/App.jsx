@@ -4,6 +4,8 @@ import { Board } from './components/Board.jsx'
 import { Panel } from './components/Panel.jsx'
 import { Notes, KOFI_URL } from './components/Notes.jsx'
 import { PlayerPage } from './components/PlayerPage.jsx'
+import { GroupPage, GroupIndex } from './components/GroupPage.jsx'
+import { posFromSlug, teamFromSlug } from './lib/groups.ts'
 import { Landings } from './components/Landings.jsx'
 import { CoffeeIcon, ShareIcon } from './components/Icons.jsx'
 import { PlayerFinder, loadIndex } from './components/PlayerFinder.jsx'
@@ -31,12 +33,15 @@ export async function loadLedger(pos) {
   return cache[pos]
 }
 
-/** the route from a pathname: the board, a named board at <slug>/ (landing.ts), or a player's page at player/<id>/ */
+/** the route from a pathname: the board, a named board at <slug>/ (landing.ts), a player's page at player/<id>/, a team page at team/<team>/<position>/ (groups.ts) or their index at team/ */
 export function parseRoute(path) {
   const base = import.meta.env.BASE_URL
   const rel = (path ?? '').startsWith(base) ? path.slice(base.length) : (path ?? '').replace(/^\//, '')
   const m = /^player\/([^/]+)\/?$/.exec(rel)
   if (m) return { kind: 'player', id: decodeURIComponent(m[1]) }
+  const g = /^team\/([^/]+)\/([^/]+)\/?$/.exec(rel)
+  if (g && teamFromSlug(g[1]) && posFromSlug(g[2])) return { kind: 'team', team: teamFromSlug(g[1]), pos: posFromSlug(g[2]) }
+  if (/^team\/?$/.test(rel)) return { kind: 'teams' }
   const landing = landingFromPath(rel)
   return landing ? { kind: 'landing', landing } : { kind: 'board' }
 }
@@ -51,6 +56,8 @@ export async function prepare(path) {
 export default function App({ path = '', preload = null }) {
   const route = parseRoute(path)
   if (route.kind === 'player') return <PlayerPage id={route.id} preload={preload} firstSeason={QB.firstSeason} />
+  if (route.kind === 'team') return <GroupPage team={route.team} pos={route.pos} preload={preload} />
+  if (route.kind === 'teams') return <GroupIndex since={QB.firstSeason} />
   return <BoardApp landing={route.kind === 'landing' ? route.landing : null} />
 }
 

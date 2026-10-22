@@ -29,6 +29,12 @@ export function Landings({ query, onOpen }) {
           </ul>
         </div>
       ))}
+      <div className="landings-group">
+        <div className="fam-h"><span>teams</span></div>
+        <ul>
+          <li><a href={`${BASE}team/`}>Every NFL team's best players by position</a></li>
+        </ul>
+      </div>
     </nav>
   )
 }

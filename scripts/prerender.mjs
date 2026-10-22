@@ -3,7 +3,9 @@
 // (src/lib/landing.ts: dist/<slug>/index.html and its card), a page per
 // player with a records file (dist/player/<id>/index.html, the file embedded
 // so the hydrate matches, and dist/player/<id>/og.png, his own social card),
-// llms.txt and the sitemap.
+// a page per franchise and position (src/lib/groups.ts:
+// dist/team/<team>/<position>/, its data embedded, and its card) and their
+// index at dist/team/, llms.txt and the sitemap.
 //
 // Without this the deployed page is `<div id="root"></div>` and every word on
 // it exists only after React runs. Google usually renders JS in a deferred
@@ -24,9 +26,12 @@ import { LANDINGS, landingH1, landingOf, landingTitle } from '../src/lib/landing
 import { evaluate, DEFAULT_QUERY } from '../src/lib/query.ts'
 import { toUrl } from '../src/lib/url.ts'
 import { POSITIONS } from '../src/lib/ledger.ts'
+import { statByKey } from '../src/lib/stats.ts'
 import { toPng } from './lib/og.mjs'
 import { playerCard } from './lib/og-player.mjs'
 import { boardCard } from './lib/og-board.mjs'
+import { groupCard } from './lib/og-group.mjs'
+import { MIN_GAMES, TEAMS, groupData, groupDescription, groupH1, groupLead, groupPath, groupTitle } from '../src/lib/groups.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SLUG = pkg.name
@@ -204,8 +209,61 @@ for (const entry of index) {
   llmsPlayers.push({ name: file.name, url, lead: face ? `${recordWords(face)}, ${placeWords(face)}.` : '' })
 }
 await Promise.all(pending)
-await vite.close()
 console.log(`prerendered ${index.length} player pages, each with its card, in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
+
+// a page per franchise and position: its players ranked over their regular-season games for the team, the curves
+// and the table, the data embedded so the client needs no ledger; then the index of every franchise
+const llmsTeams = [] // each QB page's h1, address and lead, for llms.txt below
+const t1 = Date.now()
+let teamPages = 0
+for (const team of Object.keys(TEAMS)) {
+  for (const pos of POSITIONS) {
+    const d = groupData(ledgers[pos], team)
+    for (const r of d.rows) if (pageOf.has(r.id)) r.page = true
+    const url = `${SITE}${groupPath(team, pos).slice(1)}`
+    const h1 = groupH1(d)
+    const title = groupTitle(d, config.title)
+    const description = groupDescription(d)
+    const html = renderToString(React.createElement(App, { path: `/${SLUG}${groupPath(team, pos)}`, preload: d }))
+    if (!html.includes(esc(h1).replace(/'/g, '&#x27;'))) throw new Error(`prerender: ${url} rendered without its h1`)
+    const ld = {
+      '@context': 'https://schema.org',
+      '@graph': [
+        webPage(url, title, description, { about: { '@type': 'SportsTeam', name: d.name, sport: 'American football' } }),
+        breadcrumb([[config.domain, `${ORIGIN}/`], [config.title, SITE], ['Teams', `${SITE}team/`], [h1, url]]),
+        itemList(h1, d.rows.slice(0, 10).map((r) => [`${r.name}: ${r.totals[0].toLocaleString('en-US')} ${statByKey(d.metrics[0]).noun}`, pageOf.get(r.id) ?? null])),
+      ],
+    }
+    const dir = path.join(ROOT, 'dist', groupPath(team, pos).slice(1))
+    fs.mkdirSync(dir, { recursive: true })
+    const image = { url: `${url}og.png`, alt: `${h1}: ${groupLead(d)} On a dark background.` }
+    fs.writeFileSync(path.join(dir, 'index.html'), pageHtml({ title, head: headFor({ url, title, description, jsonLd: ld, image }), appHtml: html, embed: d }))
+    await draw(groupCard(d, { site: `${config.domain}/${SLUG}` }), path.join(dir, 'og.png'))
+    urls.push(url)
+    if (pos === 'QB') llmsTeams.push({ h1, url, lead: groupLead(d) })
+    teamPages++
+  }
+}
+{
+  const url = `${SITE}team/`
+  const title = `Every NFL team's best players by position, since ${firstSeason} · ${config.title}`
+  const description = `The best quarterbacks, running backs, receivers and tight ends of all 32 franchises since ${firstSeason}, each with the players' numbers drawn game by game.`
+  const html = renderToString(React.createElement(App, { path: `/${SLUG}/team/` }))
+  const ld = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      webPage(url, title, description),
+      breadcrumb([[config.domain, `${ORIGIN}/`], [config.title, SITE], ['Teams', url]]),
+      itemList('Every NFL team', Object.keys(TEAMS).map((t) => [TEAMS[t], `${SITE}${groupPath(t, 'QB').slice(1)}`])),
+    ],
+  }
+  fs.mkdirSync(path.join(ROOT, 'dist/team'), { recursive: true })
+  fs.writeFileSync(path.join(ROOT, 'dist/team/index.html'), pageHtml({ title, head: headFor({ url, title, description, jsonLd: ld }), appHtml: html }))
+  urls.push(url)
+}
+await Promise.all(pending)
+await vite.close()
+console.log(`prerendered ${teamPages} team pages and their index, each with its card, in ${((Date.now() - t1) / 1000).toFixed(1)}s`)
 
 // the sitemap: what Search Console wants submitted, and it carries lastmod
 const lastmod = new Date().toISOString().slice(0, 10)
@@ -242,10 +300,16 @@ One page per player who leads a comparison at some point: every claim he holds (
 
 ${llmsPlayers.map((p) => `- [${p.name}](${p.url})${p.lead ? `: ${p.lead}` : ''}`).join('\n')}
 
+## Team pages
+
+One page per franchise and position (quarterbacks, running backs, receivers, tight ends): every player with ${MIN_GAMES} or more regular-season games for the team since ${firstSeason}, ranked, with each one's totals drawn game by game. All 32 are listed at ${SITE}team/. The quarterbacks:
+
+${llmsTeams.map((t) => `- [${t.h1}](${t.url}): ${t.lead}`).join('\n')}
+
 ## Data
 
 - The ledgers the site reads, one JSON per position group, at ${SITE}data/QB.json, RB.json, WR.json and TE.json: every game a player recorded a stat in since ${firstSeason}, with the result, the start flag and the stat line. Built from nflverse's weekly player stats and schedule by [the source repository](https://github.com/DrewHoo/nfl-comparator), which documents the layout. CC BY 4.0.
 `
   fs.writeFileSync(path.join(ROOT, 'dist', 'llms.txt'), txt)
-  console.log(`llms.txt: ${llmsBoards.length} named boards, ${llmsPlayers.length} player pages`)
+  console.log(`llms.txt: ${llmsBoards.length} named boards, ${llmsPlayers.length} player pages, ${llmsTeams.length} team pages`)
 }
