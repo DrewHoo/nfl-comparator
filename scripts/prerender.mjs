@@ -31,6 +31,7 @@ import { toPng } from './lib/og.mjs'
 import { playerCard } from './lib/og-player.mjs'
 import { boardCard } from './lib/og-board.mjs'
 import { groupCard } from './lib/og-group.mjs'
+import { SIBLINGS } from '../src/lib/siblings.ts'
 import { MIN_GAMES, TEAMS, groupData, groupDescription, groupH1, groupLead, groupPath, groupTitle } from '../src/lib/groups.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -309,6 +310,10 @@ ${llmsTeams.map((t) => `- [${t.h1}](${t.url}): ${t.lead}`).join('\n')}
 ## Data
 
 - The ledgers the site reads, one JSON per position group, at ${SITE}data/QB.json, RB.json, WR.json and TE.json: every game a player recorded a stat in since ${firstSeason}, with the result, the start flag and the stat line. Built from nflverse's weekly player stats and schedule by [the source repository](https://github.com/DrewHoo/nfl-comparator), which documents the layout. CC BY 4.0.
+
+## What to read next
+
+${SIBLINGS.map((s) => `- [${s.name}](${s.url}) — ${s.words}.`).join('\n')}
 `
   fs.writeFileSync(path.join(ROOT, 'dist', 'llms.txt'), txt)
   console.log(`llms.txt: ${llmsBoards.length} named boards, ${llmsPlayers.length} player pages, ${llmsTeams.length} team pages`)
