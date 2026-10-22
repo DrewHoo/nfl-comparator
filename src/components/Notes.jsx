@@ -68,8 +68,8 @@ export function Notes({ ledger }) {
           <a href="https://github.com/nflverse/nflverse-data/releases">nflverse</a> weekly player stats and schedule
           (CC BY 4.0), {ledger.firstSeason} to {ledger.currentSeason}, rebuilt from the files of {String(ledger.builtAt).slice(0, 10)}. Nothing free goes
           earlier, so every claim here reads "since {ledger.firstSeason}" even when it would hold further back. The sections
-          below say where the games come from, what the box score records, what the words mean, and where a published
-          number can differ.
+          below say where the games come from, what the box score records, what the words mean, why the old names sit
+          where they do and the eras, and where a published number can differ.
         </p>
 
         <details>
@@ -80,8 +80,7 @@ export function Notes({ ledger }) {
             quarterbacks. A row here is a game the player recorded a stat in; the stat rows and the schedule are joined on
             the game, and the team codes follow the franchise (St. Louis's games are the Rams', San Diego's the Chargers',
             Oakland's the Raiders'). The 2001 and 2002 files give a Jaguar's home games to the visitor, and those rows
-            are swapped back. A career that began before {ledger.firstSeason} sits out the career fields, since its
-            first N games are not in the files; its seasons still count in the player-season fields.
+            are swapped back.
           </p>
         </details>
 
@@ -101,7 +100,8 @@ export function Notes({ ledger }) {
             A <b>start</b> is the quarterback the schedule names for the game, which is the one who played most of it. A{' '}
             <b>win</b> is the result of a game in the sequence. "Team games of a season" count the team's schedule, so a
             player who sat one has a gap the window still counts. The regular season is the default; the word beside it
-            switches the playoffs in.
+            switches the playoffs in. On a race to a number, the small <b>age</b> under the count is the player's age on the
+            day he got there, where nflverse has his birth date.
           </p>
           <p>
             Ranks are competition ranks, ties included. "Still inside the window" lists the players who haven't played the
@@ -113,6 +113,23 @@ export function Notes({ ledger }) {
             under a sentence, and the records he set that were later broken. The rows are scored in bits (how many could have
             held it, how deep the window, how long the lead held, by how much, how plainly it reads) and folded to one row
             per claim.
+          </p>
+        </details>
+
+        <details>
+          <summary>Why the old names sit where they do, and the eras</summary>
+          <p>
+            A career that began before {ledger.firstSeason} sits out the career fields, since its first N games are not in
+            the files; its seasons still count in the player-season fields. So Peyton Manning and Brett Favre are on the
+            season boards and not on the career ones.
+          </p>
+          <p>
+            The era word in the sentence keeps the careers whose first game (or first start) came that season or later, or the seasons
+            from then on.
+            Its cuts are the league's own: 2002, when the Texans made 32 teams and the league realigned into eight
+            divisions of four; 2004, when the five-yard illegal contact rule began to be enforced as written and passing
+            numbers climbed; 2011, a new labor deal after the lockout and kickoffs moved up from the 30 to the 35; 2021,
+            the 17-game regular season; 2024, the new kickoff, built to bring back the return.
           </p>
         </details>
 

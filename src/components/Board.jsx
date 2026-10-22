@@ -3,16 +3,19 @@
 import { useState } from 'react'
 import { rowName, seqWords, testsWords } from '../lib/words.ts'
 import { statByKey } from '../lib/stats.ts'
+import { ageAtWindow } from '../lib/query.ts'
 
 const PAGE = 25
 
 function ValueCell({ r, q }) {
   if (r.value == null) return <span className="bval soft">—<small>{r.reached} {seqWords(q.seq, r.reached)}</small></span>
-  const n = q.how === 'reach' ? r.value : r.value
+  const n = r.value
+  // a race to a number: his age at the game he got there, where the birth date is known
+  const age = q.how === 'reach' ? ageAtWindow(r) : null
   return (
     <span className={'bval' + (r.complete ? '' : ' otl')}>
       {n.toLocaleString('en-US')}
-      <small>{q.how === 'reach' ? seqWords(q.seq, n) : r.complete ? (q.how === 'every' ? `of ${q.n}` : '') : `thru ${r.reached}`}</small>
+      <small>{q.how === 'reach' ? `${seqWords(q.seq, n)}${age != null ? ` · age ${age}` : ''}` : r.complete ? (q.how === 'every' ? `of ${q.n}` : '') : `thru ${r.reached}`}</small>
     </span>
   )
 }
@@ -26,7 +29,7 @@ function Rows({ rows, q, open, onOpen, panel, start = 0 }) {
       <span className={'brank' + (r.rank === 1 ? ' one' : '')}>{r.complete ? `${r.tied ? 'T' : ''}${r.rank}` : start + i + 1}</span>
       <span className="bname">
         <b>{rowName(r)}</b>
-        <small>{r.season != null ? `${r.team} · ${r.reached} of ${q.n} games` : r.from === r.to ? r.from : `${r.from}–${r.to}`}{r.player.born && r.season == null ? '' : ''}</small>
+        <small>{r.season != null ? `${r.team} · ${r.reached} of ${q.n} games` : r.from === r.to ? r.from : `${r.from}–${r.to}`}</small>
       </span>
       <ValueCell r={r} q={q} />
     </button>

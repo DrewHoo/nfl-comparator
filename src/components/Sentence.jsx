@@ -28,14 +28,24 @@ const SCOPE_OPTIONS = [
   { value: 'all', label: 'playoffs included' },
 ]
 
-const eraOptions = (firstSeason) => [
-  { value: 0, label: `since ${firstSeason}`, hint: 'the whole ledger' },
-  { value: 2001, label: 'since 2001' },
-  { value: 2006, label: 'since 2006' },
-  { value: 2011, label: 'since 2011' },
-  { value: 2016, label: 'since 2016' },
-  { value: 2021, label: 'since 2021' },
+// the eras: the whole ledger, then the league's own breakpoints, each a change in how the game was played or
+// scheduled (a season is named by the year it starts in); the Method says why each matters
+export const ERAS = [
+  [2002, '32 teams, eight divisions'],
+  [2004, 'illegal contact enforced'],
+  [2011, 'new CBA, kickoffs from the 35'],
+  [2021, 'the 17-game season'],
+  [2024, 'the new kickoff'],
 ]
+// an address from before the eras were named can carry another year; it stays a choice so the picker says it
+const eraOptions = (firstSeason, currentSeason, since) => {
+  const out = [
+    { value: 0, label: `since ${firstSeason}`, hint: 'the whole ledger' },
+    ...ERAS.filter(([y]) => y > firstSeason && y < currentSeason).map(([y, hint]) => ({ value: y, label: `since ${y}`, hint })),
+  ]
+  if (since && !out.some((o) => o.value === since)) out.push({ value: since, label: `since ${since}` })
+  return out
+}
 
 /** every threshold of every stat the position has, as one test each: "280+ passing yards" */
 function testOptions(pos) {
@@ -75,8 +85,8 @@ function NumberWord({ value, onChange, onTrack, step = 1, wide, label }) {
   )
 }
 
-export function Sentence({ query, onChange, onTrack, firstSeason }) {
-  const eras = useMemo(() => eraOptions(firstSeason), [firstSeason])
+export function Sentence({ query, onChange, onTrack, firstSeason, currentSeason }) {
+  const eras = useMemo(() => eraOptions(firstSeason, currentSeason, query.since), [firstSeason, currentSeason, query.since])
   const set = (patch, opts) => onChange({ ...query, ...patch }, opts)
   const stats = statsFor(query.pos)
   const statOptions = stats.map((s) => ({ value: s.key, label: s.noun }))

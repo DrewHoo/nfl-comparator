@@ -139,7 +139,7 @@ function BoardApp({ landing }) {
       </div>
       {/* one h1: the site as an eyebrow, the board's subject as the title, worded the way it's searched */}
       <h1><span className="h1-site">{SITE}</span><span className="h1-words">{h1Words(query)}</span></h1>
-      <Sentence query={query} onChange={change} onTrack={trackQuery} firstSeason={QB.firstSeason} />
+      <Sentence query={query} onChange={change} onTrack={trackQuery} firstSeason={QB.firstSeason} currentSeason={QB.currentSeason} />
       <p className="baserate">
         {`Same point in the career, every ${query.seq === 'teamGames' ? 'season' : 'career'} since ${query.since ?? QB.firstSeason}.`}
         {board && board.ranked[0] && board.ranked[0].value != null && <> The leader: <b>{board.ranked[0].player.name}</b>, {board.ranked[0].value.toLocaleString('en-US')}{board.ranked[1] && board.ranked[1].value != null ? <>; then <b>{board.ranked[1].player.name}</b>, {board.ranked[1].value.toLocaleString('en-US')}</> : null}.</>}
