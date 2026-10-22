@@ -1,10 +1,13 @@
 // The query in the URL, one param per slot, so every board is a link.
 // Pure: parseUrl reads a search string, toUrl writes one; the defaults are
 // omitted. `t` is the open player (the panel), `vs` the peer it reads against
-// (the panel's default when absent).
+// (the panel's default when absent). A named board (landing.ts) lives at its
+// own path instead: toHref writes `<slug>/` for its query, with only `t` and
+// `vs` as params, and parseUrl reads a landing page's params over its query.
 import { DEFAULT_QUERY, normalize, type Dir, type How, type Query, type Scope, type Seq, type Test } from './query.ts'
 import { STATS, type StatKey } from './stats.ts'
 import { POSITIONS, type Pos } from './ledger.ts'
+import { landingOf } from './landing.ts'
 
 const HOWS: How[] = ['sum', 'count', 'every', 'streak', 'reach']
 const SEQS: Seq[] = ['games', 'starts', 'seasons', 'teamGames']
@@ -12,9 +15,10 @@ const isStat = (s: string): s is StatKey => STATS.some((x) => x.key === s)
 
 export interface UrlState { query: Query; open: string | null; vs?: string | null }
 
-export function parseUrl(search: string): UrlState {
+/** the state a search string says, over `base` (the root's default query, or the landing's when the page is one) */
+export function parseUrl(search: string, base: Query = DEFAULT_QUERY): UrlState {
   const p = new URLSearchParams(search)
-  const q: Query = { ...DEFAULT_QUERY, tests: [] }
+  const q: Query = { ...base, tests: [...base.tests] }
   const pos = p.get('pos'); if (pos && (POSITIONS as string[]).includes(pos)) q.pos = pos as Pos
   const stat = p.get('stat'); if (stat && isStat(stat)) q.stat = stat
   const how = p.get('how'); if (how && (HOWS as string[]).includes(how)) q.how = how as How
@@ -51,4 +55,16 @@ export function toUrl(state: UrlState): string {
   if (state.open && state.vs) p.set('vs', state.vs)
   const s = p.toString()
   return s ? `?${s}` : ''
+}
+
+/** the address under the site's base: a named board's path when the query is one (`t` and `vs` ride along), else the query string */
+export function toHref(state: UrlState): string {
+  const q = normalize(state.query)
+  const l = landingOf(q)
+  if (!l) return toUrl(state)
+  const p = new URLSearchParams()
+  if (state.open) p.set('t', state.open)
+  if (state.open && state.vs) p.set('vs', state.vs)
+  const s = p.toString()
+  return `${l.slug}/${s ? `?${s}` : ''}`
 }

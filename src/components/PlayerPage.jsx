@@ -15,7 +15,7 @@ import { track } from '../lib/analytics.ts'
 import { RECORDS, KNOB_PATHS, decodePlayer, knobAt, page, withKnob, statOf } from '../lib/records.ts'
 import { statByKey } from '../lib/stats.ts'
 import { POS_WORDS, breakerWords, placeWords, recordWords, runWords } from '../lib/words.ts'
-import { toUrl } from '../lib/url.ts'
+import { toHref } from '../lib/url.ts'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -32,7 +32,8 @@ function Terms({ r }) {
 
 function Row({ r, tune, minN }) {
   const stat = statByKey(r.shape.stat)
-  const href = `${BASE}${toUrl({ query: { ...r.shape, n: r.at }, open: r.key })}`
+  // a named board's path when the claim is one (landing.ts), else the query string
+  const href = `${BASE}${toHref({ query: { ...r.shape, n: r.at }, open: r.key })}`
   const value = r.shape.how === 'reach' ? r.value : r.value
   return (
     <div className={'rrow' + (r.live ? ' live' : '')}>

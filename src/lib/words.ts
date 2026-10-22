@@ -130,3 +130,35 @@ export function headWords(q: Query): string {
   if (q.how === 'streak') return `longest streak with ${t} in ${q.seq === 'teamGames' ? win : `the first ${win}`}`
   return `${q.dir} games with ${t} in ${q.seq === 'teamGames' ? win : `the first ${win}`}`
 }
+
+// ---- the search form: a query the way people type it, for an h1 and a
+// named page's title ("most wins through the first 150 starts in the NFL")
+
+/** the position, singular: "quarterback", "wide receiver" */
+export const POS_ONE: Record<Pos, string> = { QB: 'quarterback', RB: 'running back', WR: 'wide receiver', TE: 'tight end' }
+
+/** the query without its position or scope: "most wins through the first 150 starts", "fastest to 250 receptions", "300+ passing yards in each of a team's first 5 games" */
+export function searchWords(q: Query): string {
+  const stat = statByKey(q.stat)
+  const win = q.seq === 'teamGames' ? `a team's first ${q.n} games` : `the first ${q.n} ${seqWords(q.seq, q.n)}`
+  if (q.how === 'sum') return `${q.dir} ${stat.noun} through ${win}`
+  if (q.how === 'reach') return `${q.dir === 'fewest' ? 'fastest' : 'slowest'} to ${countWords(q.n, stat)}`
+  const t = testsWords(q.tests)
+  if (q.how === 'every') return `${t} in each of ${win}`
+  if (q.how === 'streak') return `longest streak of games with ${t} in ${win}`
+  return `${q.dir} games with ${t} in ${win}`
+}
+
+/**
+ * the h1 of a board: the search form, then who ("in the NFL" when only one
+ * position has the stat, else "by an NFL running back"), then the scope and
+ * the era: "Most wins through the first 150 starts in the NFL, playoffs included"
+ */
+export function h1Words(q: Query): string {
+  const stat = statByKey(q.stat)
+  const who = stat.pos.length === 1 ? 'in the NFL' : `by an NFL ${POS_ONE[q.pos]}`
+  const scope = q.scope === 'all' ? ', playoffs included' : ''
+  const era = q.since ? ` since ${q.since}` : ''
+  const words = searchWords(q)
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)} ${who}${scope}${era}`
+}

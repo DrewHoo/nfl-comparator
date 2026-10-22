@@ -16,3 +16,6 @@ data/build/
 
 # wrangler dev state
 .wrangler/
+
+# rtk's vitest reporter
+.vitest/

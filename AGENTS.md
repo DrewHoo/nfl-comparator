@@ -154,6 +154,12 @@ can surprise you. Add to it whenever a gate or a reader's correction teaches us 
 - Vite 8 is rolldown: the per-position chunk is `build.rolldownOptions.output.codeSplitting`
   (`advancedChunks` is deprecated and warns).
 - The dev-server preview config is `.claude/launch.json` (port 5175, gitignored).
+- A named board on a non-QB position needs that ledger in memory before React runs, or
+  the hydrate finds "loading" where the prerender drew the board: `main.jsx` awaits
+  `prepare(path)` from `App.jsx` (the landing's ledger chunk) before `hydrateRoot`, and
+  the prerender primes every position through the same `loadLedger`.
+- `node scripts/indexnow.mjs` with no flag pings the live site; it waits up to two minutes
+  for the key file before giving up, so don't run it to see its usage.
 - `npm run records` writes `public/players/` (gitignored, 20 s); a player page on the
   dev server 404s its file until it has run. `npm run build` runs it first, then the
   prerender writes a page per player.

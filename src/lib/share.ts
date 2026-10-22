@@ -9,7 +9,9 @@ import type { RecordRow } from './records.ts'
 import type { Pos } from './ledger.ts'
 import { compare, crossingWords, matchWords } from './compare.ts'
 import { countWords, statByKey } from './stats.ts'
-import { headWords, placeWords, queryWords, rankWords, recordWords, rowWords, seqWords, POS_WORDS } from './words.ts'
+import { headWords, placeWords, queryWords, rankWords, recordWords, rowWords, searchWords, seqWords, POS_WORDS } from './words.ts'
+import { landingOf, landingTitle } from './landing.ts'
+import { DEFAULT_QUERY } from './query.ts'
 
 export const SITE = 'NFL Comparator'
 
@@ -18,6 +20,9 @@ export interface ShareText { title: string; description: string }
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 const since = (q: Query, board: Board) => `since ${q.since ?? board.since}`
 const who = (q: Query) => (q.seq === 'teamGames' ? 'player-seasons' : 'careers')
+
+/** the root page's title: the default board's head term, then what the site is */
+export const rootTitle = (site = SITE) => `${cap(searchWords(DEFAULT_QUERY))}, and every NFL player at the same point in his career · ${site}`
 
 /** "Quarterbacks with the most wins through their first 150 starts · NFL Comparator" */
 export const shareTitle = (q: Query) => `${cap(queryWords(q))} · ${SITE}`
@@ -31,12 +36,13 @@ export function claimWords(q: Query, board: Board, row: Row): string {
 /** what the share button sends with the board's address: the open row's claim, else the sentence */
 export const shareText = (q: Query, board: Board | null, row: Row | null) => (board && row ? claimWords(q, board, row) : `${cap(queryWords(q))}.`)
 
-/** a board's head: the query as the title, the leader as the description */
+/** a board's head: the query as the title (a named board's, when it has a page), the leader as the description */
 export function boardText(q: Query, board: Board, site = SITE): ShareText {
   const stat = statByKey(q.stat)
   const [a, b] = board.ranked
   const scope = q.scope === 'all' ? ', playoffs included' : ''
-  const title = `${cap(headWords(q))}${scope} · ${site}`
+  const landing = landingOf(q)
+  const title = `${landing ? landingTitle(landing, board.since) : `${cap(headWords(q))}${scope}`} · ${site}`
   const lead = a && a.value != null ? `${a.player.name} leads with ${rowWords(a, q)}${b && b.value != null ? `; ${b.player.name} ${q.how === 'reach' ? `${b.value} ${seqWords(q.seq, b.value)}` : countWords(b.value, stat)}` : ''}. ` : ''
   return { title, description: `${lead}${cap(queryWords(q))}: ${board.ranked.length.toLocaleString('en-US')} ${who(q)} ${since(q, board)}.` }
 }
@@ -60,9 +66,9 @@ export function playerLead(name: string, pos: Pos, face: RecordRow | null | unde
   return face ? `${name}: ${recordWords(face)}, ${placeWords(face)}.` : `Every comparison ${name} leads among ${POS_WORDS[pos]} at the same point in the career, since ${firstSeason}.`
 }
 
-/** a player page's head */
+/** a player page's head: the title is the fact people type ("cam newton records"), the description leads with his face row */
 export function playerText(name: string, pos: Pos, face: RecordRow | null | undefined, firstSeason: number, site = SITE): ShareText {
   const lead = playerLead(name, pos, face, firstSeason)
   const rest = ` Every comparison he leads among ${POS_WORDS[pos]} at the same point in the career, since ${firstSeason}.`
-  return { title: `${name} · ${site}`, description: face ? `${lead}${rest}` : lead }
+  return { title: `${name}: every record he holds at the same point in a career, since ${firstSeason} · ${site}`, description: face ? `${lead}${rest}` : lead }
 }

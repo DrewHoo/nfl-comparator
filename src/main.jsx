@@ -1,6 +1,6 @@
 import React from 'react'
 import { createRoot, hydrateRoot } from 'react-dom/client'
-import App from './App.jsx'
+import App, { prepare } from './App.jsx'
 import './styles.css'
 
 // The markup is already in the HTML: scripts/prerender.mjs bakes it in at
@@ -17,5 +17,8 @@ const app = (
     <App path={window.location.pathname} preload={preload} />
   </React.StrictMode>
 )
-if (root.firstChild) hydrateRoot(root, app)
-else createRoot(root).render(app)
+// a named board's ledger first, so the hydrate finds the board the prerender drew (a failed load still renders: the board then says loading)
+prepare(window.location.pathname).catch(() => {}).then(() => {
+  if (root.firstChild) hydrateRoot(root, app)
+  else createRoot(root).render(app)
+})

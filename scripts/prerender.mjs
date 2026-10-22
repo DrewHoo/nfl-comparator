@@ -1,8 +1,9 @@
 // Runs after `vite build`. Bakes the rendered app into dist/index.html and
-// writes the <head> from site.config.js, then a page per player with a
-// records file (dist/player/<id>/index.html, the file embedded so the
-// hydrate matches, and dist/player/<id>/og.png, his own social card), and
-// the sitemap.
+// writes the <head> from site.config.js, then a page per named board
+// (src/lib/landing.ts: dist/<slug>/index.html and its card), a page per
+// player with a records file (dist/player/<id>/index.html, the file embedded
+// so the hydrate matches, and dist/player/<id>/og.png, his own social card),
+// llms.txt and the sitemap.
 //
 // Without this the deployed page is `<div id="root"></div>` and every word on
 // it exists only after React runs. Google usually renders JS in a deferred
@@ -17,10 +18,15 @@ import { fileURLToPath } from 'node:url'
 import config from '../site.config.js'
 import pkg from '../package.json' with { type: 'json' }
 import { decodePlayer, page } from '../src/lib/records.ts'
-import { placeWords, recordWords } from '../src/lib/words.ts'
-import { playerText } from '../src/lib/share.ts'
+import { placeWords, recordWords, rowName, rowWords } from '../src/lib/words.ts'
+import { boardText, playerText, rootTitle } from '../src/lib/share.ts'
+import { LANDINGS, landingH1, landingOf, landingTitle } from '../src/lib/landing.ts'
+import { evaluate, DEFAULT_QUERY } from '../src/lib/query.ts'
+import { toUrl } from '../src/lib/url.ts'
+import { POSITIONS } from '../src/lib/ledger.ts'
 import { toPng } from './lib/og.mjs'
 import { playerCard } from './lib/og-player.mjs'
+import { boardCard } from './lib/og-board.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SLUG = pkg.name
@@ -46,7 +52,9 @@ const vite = await createServer({
   appType: 'custom',
   logLevel: 'warn',
 })
-const { default: App } = await vite.ssrLoadModule('/src/App.jsx')
+const { default: App, loadLedger } = await vite.ssrLoadModule('/src/App.jsx')
+// every position's ledger in the app's cache, so a named board on any position renders as the board, not "loading"
+const ledgers = Object.fromEntries(await Promise.all(POSITIONS.map(async (pos) => [pos, await loadLedger(pos)])))
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 
@@ -80,6 +88,21 @@ function headFor({ url, title, description, jsonLd, image = { url: `${SITE}og.pn
   </head>`
 }
 
+const breadcrumb = (items) => ({ '@type': 'BreadcrumbList', itemListElement: items.map(([name, item], i) => ({ '@type': 'ListItem', position: i + 1, name, item })) })
+const webPage = (url, name, description, extra = {}) => ({ '@type': 'WebPage', '@id': url, url, name, description, isPartOf: { '@type': 'WebSite', url: `${ORIGIN}/`, name: config.domain }, ...extra })
+/** a ranked list for a leaderboard page: [name, url?][] in order */
+const itemList = (name, items) => ({
+  '@type': 'ItemList', name, itemListOrder: 'https://schema.org/ItemListOrderAscending', numberOfItems: items.length,
+  itemListElement: items.map(([item, url], i) => ({ '@type': 'ListItem', position: i + 1, name: item, ...(url ? { url } : {}) })),
+})
+
+// who has a page (scripts/build-records.mjs), so a list item links to it
+const playersDir = path.join(ROOT, 'dist/players')
+const index = fs.existsSync(path.join(playersDir, 'index.json')) ? JSON.parse(fs.readFileSync(path.join(playersDir, 'index.json'), 'utf8')) : []
+const pageOf = new Map(index.map((e) => [e.id, `${SITE}player/${e.id}/`]))
+/** a board's top ten as list items: "Patrick Mahomes: 115 wins through his first 150 starts", linked to his page when he has one */
+const boardItems = (q, board) => board.ranked.slice(0, 10).map((r) => [`${rowName(r)}: ${rowWords(r, q)}`, pageOf.get(r.player.id) ?? null])
+
 const template = fs.readFileSync(OUT, 'utf8')
 // Throw rather than no-op: a Vite change that renames the marker would
 // otherwise quietly ship an empty page again.
@@ -96,24 +119,22 @@ function pageHtml({ title, head, appHtml, embed }) {
   return html
 }
 
-// the board
+// the board: the root's title carries the default board's head term (share.ts rootTitle), its list is the default board's top ten
 const appHtml = renderToString(React.createElement(App))
+const rootBoard = evaluate(ledgers.QB, DEFAULT_QUERY)
+const title = rootTitle(config.title)
 const jsonLd = {
   '@context': 'https://schema.org',
   '@graph': [
-    { '@type': 'WebPage', '@id': SITE, url: SITE, name: config.title, description: config.description, isPartOf: { '@type': 'WebSite', url: `${ORIGIN}/`, name: config.domain } },
-    { '@type': 'BreadcrumbList', itemListElement: [
-      { '@type': 'ListItem', position: 1, name: config.domain, item: `${ORIGIN}/` },
-      { '@type': 'ListItem', position: 2, name: config.title, item: SITE },
-    ] },
+    webPage(SITE, title, config.description),
+    breadcrumb([[config.domain, `${ORIGIN}/`], [config.title, SITE]]),
+    itemList(`${landingH1({ query: DEFAULT_QUERY })}, since ${rootBoard.since}`, boardItems(DEFAULT_QUERY, rootBoard)),
   ],
 }
-fs.writeFileSync(OUT, pageHtml({ title: config.title, head: headFor({ url: SITE, title: config.title, description: config.description, jsonLd }), appHtml }))
+fs.writeFileSync(OUT, pageHtml({ title, head: headFor({ url: SITE, title, description: config.description, jsonLd }), appHtml }))
 const words = appHtml.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length
 console.log(`prerendered ${(appHtml.length / 1024).toFixed(0)}KB into #root (~${words} words); head written for ${SITE}`)
 
-// a page per player with a records file (scripts/build-records.mjs), and his
-// card; the PNGs draw a few at a time, sharp's threads do the work
 const urls = [SITE]
 const pending = new Set()
 const draw = async (svg, file) => {
@@ -121,8 +142,41 @@ const draw = async (svg, file) => {
   pending.add(p)
   if (pending.size >= 8) await Promise.race(pending)
 }
-const playersDir = path.join(ROOT, 'dist/players')
-const index = fs.existsSync(path.join(playersDir, 'index.json')) ? JSON.parse(fs.readFileSync(path.join(playersDir, 'index.json'), 'utf8')) : []
+
+// a page per named board (src/lib/landing.ts): the board on its query at its
+// own path, titled the way it's searched, its top ten as the list, its own
+// card (the board card, scripts/lib/og-board.mjs)
+const llmsBoards = [] // each page's h1, address and lead, for llms.txt below
+for (const l of LANDINGS) {
+  const board = evaluate(ledgers[l.query.pos], l.query)
+  const url = `${SITE}${l.slug}/`
+  const h1 = landingH1(l)
+  const title = `${landingTitle(l, board.since)} · ${config.title}`
+  const { description } = boardText(l.query, board, config.title)
+  const html = renderToString(React.createElement(App, { path: `/${SLUG}/${l.slug}/` }))
+  // (React writes an apostrophe as &#x27;)
+  if (!html.includes(esc(h1).replace(/'/g, '&#x27;'))) throw new Error(`prerender: ${l.slug} rendered without its h1`)
+  const ld = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      webPage(url, title, description),
+      breadcrumb([[config.domain, `${ORIGIN}/`], [config.title, SITE], [h1, url]]),
+      itemList(`${h1}, since ${board.since}`, boardItems(l.query, board)),
+    ],
+  }
+  const dir = path.join(ROOT, 'dist', l.slug)
+  fs.mkdirSync(dir, { recursive: true })
+  const image = { url: `${url}og.png`, alt: `${h1}: the top of the board, on a dark background.` }
+  fs.writeFileSync(path.join(dir, 'index.html'), pageHtml({ title, head: headFor({ url, title, description, jsonLd: ld, image }), appHtml: html }))
+  await draw(boardCard(l.query, board, { seasons: SEASONS, site: `${config.domain}/${SLUG}` }), path.join(dir, 'og.png'))
+  urls.push(url)
+  llmsBoards.push({ h1, url, lead: description })
+}
+console.log(`prerendered ${LANDINGS.length} named boards, each with its card`)
+
+// a page per player with a records file (scripts/build-records.mjs), and his
+// card; the PNGs draw a few at a time, sharp's threads do the work
+const llmsPlayers = [] // each page's name, address and lead line, for llms.txt below
 const t0 = Date.now()
 for (const entry of index) {
   const file = JSON.parse(fs.readFileSync(path.join(playersDir, `${entry.id}.json`), 'utf8'))
@@ -131,15 +185,14 @@ for (const entry of index) {
   const fams = page(decodePlayer(file), file.id, file.pos)
   const face = fams[0]?.best
   const { title, description } = playerText(file.name, file.pos, face, firstSeason, config.title)
+  // the faces of his families as the list; a face links its named board when its claim is one
+  const faceUrl = (r) => { const l = landingOf({ ...r.shape, n: r.at }); return l ? `${SITE}${l.slug}/` : null }
   const ld = {
     '@context': 'https://schema.org',
     '@graph': [
-      { '@type': 'WebPage', '@id': url, url, name: title, description, isPartOf: { '@type': 'WebSite', url: `${ORIGIN}/`, name: config.domain }, about: { '@type': 'Person', name: file.name } },
-      { '@type': 'BreadcrumbList', itemListElement: [
-        { '@type': 'ListItem', position: 1, name: config.domain, item: `${ORIGIN}/` },
-        { '@type': 'ListItem', position: 2, name: config.title, item: SITE },
-        { '@type': 'ListItem', position: 3, name: file.name, item: url },
-      ] },
+      webPage(url, title, description, { about: { '@type': 'Person', name: file.name } }),
+      breadcrumb([[config.domain, `${ORIGIN}/`], [config.title, SITE], [file.name, url]]),
+      itemList(`What ${file.name} leads at the same point in a career, since ${firstSeason}`, fams.slice(0, 10).map((f) => [`${recordWords(f.best)}, ${placeWords(f.best)}`, faceUrl(f.best)])),
     ],
   }
   const dir = path.join(ROOT, 'dist/player', entry.id)
@@ -148,6 +201,7 @@ for (const entry of index) {
   fs.writeFileSync(path.join(dir, 'index.html'), pageHtml({ title, head: headFor({ url, title, description, jsonLd: ld, image }), appHtml: html, embed: file }))
   await draw(playerCard(file, fams, { seasons: SEASONS }), path.join(dir, 'og.png'))
   urls.push(url)
+  llmsPlayers.push({ name: file.name, url, lead: face ? `${recordWords(face)}, ${placeWords(face)}.` : '' })
 }
 await Promise.all(pending)
 await vite.close()
@@ -166,3 +220,32 @@ ${urls.map((u) => `  <url>
 </urlset>
 `,
 )
+
+// llms.txt (llmstxt.org): the site in plain markdown for a language model
+// that reads it, the way a person reads the board: what it is, then one line
+// per named board with its lead, then the player pages, then the data. Said
+// the way the pages say it, nothing more.
+{
+  const txt = `# ${config.title}
+
+> ${config.description}
+
+A board ranks every career (or every player-season) by one stat at the same point: the first N starts, games or seasons, or a team's first N games of a season. The sentence at ${SITE} has five slots (who, which stat, how it adds up, over which games, regular season or playoffs included) and any sentence it can make is a board with its own address; the pages below are the ones people search for, each at a named address. A start is the quarterback the schedule names; a game is one the player recorded a stat in; a career that began before ${firstSeason} sits out career boards, because its first N is unknowable. Ranks are competition ranks with ties. The data is nflverse's (CC BY 4.0), ${firstSeason}–${currentSeason}, rebuilt weekly in season. Credit as "per NFL Comparator" with the page's link.
+
+## Named boards
+
+${llmsBoards.map((b) => `- [${b.h1}](${b.url}): ${b.lead}`).join('\n')}
+
+## Player pages
+
+One page per player who leads a comparison at some point: every claim he holds (the stretch of N where he is first under a sentence) and the records he set that were later broken, each linked to its board. The line is his best claim.
+
+${llmsPlayers.map((p) => `- [${p.name}](${p.url})${p.lead ? `: ${p.lead}` : ''}`).join('\n')}
+
+## Data
+
+- The ledgers the site reads, one JSON per position group, at ${SITE}data/QB.json, RB.json, WR.json and TE.json: every game a player recorded a stat in since ${firstSeason}, with the result, the start flag and the stat line. Built from nflverse's weekly player stats and schedule by [the source repository](https://github.com/DrewHoo/nfl-comparator), which documents the layout. CC BY 4.0.
+`
+  fs.writeFileSync(path.join(ROOT, 'dist', 'llms.txt'), txt)
+  console.log(`llms.txt: ${llmsBoards.length} named boards, ${llmsPlayers.length} player pages`)
+}

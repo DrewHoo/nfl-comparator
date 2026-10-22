@@ -1,7 +1,7 @@
 # Search traffic
 
-Status: draft, 2026-10-20. Written from reading `cfb-streak-king/specs/seo.spec.md`, its
-prerender and its deploy against this site's. Nothing here is built.
+Status: items 1, 2 and 4 built 2026-10-21; 3 and 5 open. Written 2026-10-20 from reading
+`cfb-streak-king/specs/seo.spec.md`, its prerender and its deploy against this site's.
 
 ## Where we stand
 
@@ -61,7 +61,13 @@ once we have impressions.
 
 ## The plan, in order
 
-### 1. Wording and small structure (one PR)
+### 1. Wording and small structure (built 2026-10-21)
+
+Rulings taken: the root title leads with the head term, the spec's wording. The h1 is
+one element, the site name as a mono eyebrow and the board's subject as the title, worded
+the way it's searched (`h1Words` in `words.ts`: "Most wins through the first 150 starts in
+the NFL"; a stat two positions share says the position, "by an NFL running back"), and it
+follows the pickers, so the sentence under it is the control and the h1 the headline.
 
 - The root title carries the default board the way Streak King's root carries its head
   term: something like "Most wins through the first 150 starts, and every NFL player at
@@ -80,7 +86,15 @@ once we have impressions.
   the sitemap index into the siblings' sitemaps but only runs by hand. So a deploy here
   never pings unless we do it, same as Streak King.
 
-### 2. Named definition pages (the biggest swing)
+### 2. Named definition pages (built 2026-10-21)
+
+Built as `src/lib/landing.ts`: 23 slugs, the position in the slug only where two
+positions share a stat and a window (the tight ends), in the title always. `toHref` in
+`url.ts` writes the path for a landing's query, `parseRoute` in `App.jsx` reads it, the
+prerender writes each page with its own card, `Landings.jsx` lists them under the board,
+a player page's row links the path when its claim is one, and the worker gives a root URL
+whose query is a landing's that page as its canonical. No leader beside each link yet:
+the list would have to evaluate every landing on every position's ledger in the browser.
 
 A `src/lib/landing.ts` table, slug to `Query`, 15 to 25 to start, taken from what the
 research says repeats: wins through 150 starts (regular season, and playoffs included),
@@ -139,5 +153,9 @@ visits and the `share` and `record` events.
 
 ## Open questions
 
-- The root title's wording, and whether the h1 should be the query words.
-- The position in the slug, or only in the title.
+- (Settled with item 1: the root title leads with the head term; the h1 is the query's
+  search wording under a site-name eyebrow.)
+- (Settled with item 2: the position is in the slug only where two positions share a
+  stat and a window; the title always says it.)
+- Whether a landing's link in the list under the board should carry its leader, which
+  Streak King's does; it costs an evaluate per landing per ledger in the browser.

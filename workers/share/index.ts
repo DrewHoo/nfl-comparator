@@ -17,11 +17,17 @@
 //                   crawlers only) and per card (`share card`), sent
 //                   server-side to the index site's project.
 //
+// A named board (src/lib/landing.ts) is a path of its own, prerendered with
+// its head and card; a query string on it (`?t=`, a changed slot) reads
+// over its query, and a root URL whose query is a named board's gets that
+// page as its canonical.
+//
 // Anything else, and anything that goes wrong, passes through untouched:
 // this worker must never be the reason the site is down. The player pages
 // are prerendered with their own card and pass through.
 
-import { parseUrl, toUrl } from '../../src/lib/url.ts';
+import { parseUrl, toHref, toUrl } from '../../src/lib/url.ts';
+import { landingFromPath, landingOf } from '../../src/lib/landing.ts';
 import { decodeLedger, type Ledger, type LedgerFile, type Pos } from '../../src/lib/ledger.ts';
 import { evaluate, type Board, type Query, type Row } from '../../src/lib/query.ts';
 import { compare, peerOf } from '../../src/lib/compare.ts';
@@ -180,10 +186,11 @@ function compareCard(q: Query, board: Board, row: Row, peer: Row, ledger: Ledger
   };
 }
 
-/** the query, the open row and its peer for a URL; null when the URL says nothing the root doesn't */
-async function readUrl(origin: string, search: string): Promise<{ q: Query; board: Board; ledger: Ledger; row: Row | null; peer: Row | null } | null> {
-  const state = parseUrl(search);
+/** the query, the open row and its peer for a URL (a named board's params read over its query); null when the URL says nothing its page doesn't */
+async function readUrl(origin: string, search: string, base?: Query): Promise<{ q: Query; board: Board; ledger: Ledger; row: Row | null; peer: Row | null } | null> {
+  const state = parseUrl(search, base);
   if (!toUrl(state)) return null;
+  if (base && toHref(state) === toHref({ query: base, open: null })) return null;
   const ledger = await loadLedger(origin, state.query.pos);
   const board = evaluate(ledger, state.query);
   const row = state.open ? [...board.ranked, ...board.onTheWay].find((r) => r.key === state.open) ?? null : null;
@@ -229,17 +236,22 @@ export default {
     headers.delete('accept-encoding');
     const res = await fetch(new Request(`${origin}${url.pathname}${url.search}`, { method: request.method, headers }));
     try {
-      if (request.method !== 'GET' || url.pathname !== `${BASE}/` || !url.search) return res;
+      const landing = url.pathname === `${BASE}/` ? null : landingFromPath(url.pathname);
+      if (request.method !== 'GET' || (url.pathname !== `${BASE}/` && !landing) || !url.search) return res;
       if (!(res.headers.get('content-type') ?? '').includes('text/html')) return res;
-      const read = await readUrl(origin, url.search);
+      const read = await readUrl(origin, url.search, landing?.query);
       if (!read) return res;
       if (agentOf(request.headers.get('user-agent')) !== 'browser') report(ctx, request, env, 'share unfurl', urlProps(url));
       const text = read.row ? compareText(read.q, read.board, read.row, read.peer) : boardText(read.q, read.board);
-      const canonical = toUrl({ query: read.q, open: read.row?.key ?? null, vs: read.peer?.key ?? null });
-      const img = `${origin}${BASE}/share/og.png${canonical}`;
-      const pageUrl = `${origin}${BASE}/${canonical}`;
+      const state = { query: read.q, open: read.row?.key ?? null, vs: read.peer?.key ?? null };
+      const img = `${origin}${BASE}/share/og.png${toUrl(state)}`;
+      const pageUrl = `${origin}${BASE}/${toHref(state)}`;
+      // the search address: a named board's page, else the root (an unnamed query has no page of its own)
+      const named = landingOf(read.q);
+      const canonical = `${origin}${BASE}/${named ? `${named.slug}/` : ''}`;
       return new HTMLRewriter()
         .on('title', { element(e) { e.setInnerContent(text.title); } })
+        .on('link[rel="canonical"]', { element(e) { e.setAttribute('href', canonical); } })
         .on('meta[name="description"]', content(text.description))
         .on('meta[property="og:title"]', content(text.title))
         .on('meta[property="og:description"]', content(text.description))

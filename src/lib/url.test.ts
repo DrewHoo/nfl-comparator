@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseUrl, toUrl } from './url.ts'
+import { parseUrl, toHref, toUrl } from './url.ts'
 import { DEFAULT_QUERY } from './query.ts'
 
 describe('url', () => {
@@ -27,5 +27,19 @@ describe('url', () => {
   })
   it('a position without starts falls back to games', () => {
     expect(parseUrl('?pos=WR&stat=rec&seq=starts').query.seq).toBe('games')
+  })
+  it('a named board writes its path, with the open player and the peer riding along', () => {
+    const query = { ...DEFAULT_QUERY, n: 100 }
+    expect(toHref({ query, open: null })).toBe('most-wins-through-100-starts/')
+    expect(toHref({ query, open: '00-0033873', vs: '00-0019596' })).toBe('most-wins-through-100-starts/?t=00-0033873&vs=00-0019596')
+    expect(toUrl({ query, open: null })).toBe('?n=100')
+    expect(toHref({ query: DEFAULT_QUERY, open: null })).toBe('')
+    expect(toHref({ query: { ...query, scope: 'all' as const }, open: null })).toBe('?n=100&scope=all')
+  })
+  it("a landing page's params read over its query", () => {
+    const base = { ...DEFAULT_QUERY, n: 100 }
+    expect(parseUrl('', base).query).toEqual(base)
+    expect(parseUrl('?t=00-0033873', base)).toEqual({ query: base, open: '00-0033873', vs: null })
+    expect(parseUrl('?scope=all', base).query).toEqual({ ...base, scope: 'all' })
   })
 })
