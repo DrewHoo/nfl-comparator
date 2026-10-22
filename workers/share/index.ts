@@ -40,7 +40,7 @@ interface Env { ORIGIN?: string }
 
 const BASE = '/nfl-comparator';
 /** Bump on any change to what the card draws or how a URL reads; it keys the edge cache. */
-const CARD_VERSION = '2026-10-21a';
+const CARD_VERSION = '2026-10-22c';
 
 // Analytics: one Mixpanel event per link preview, sent server-side to the
 // index site's project (the public token its embed carries; a project token

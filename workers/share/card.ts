@@ -21,6 +21,11 @@ const LINE = '#453a42';
 const CREAM = '#f3e2bc';
 const RUST = '#c36c36';
 
+/** the safe column: every meaningful glyph sits in the centered 720px (scripts/lib/og.mjs has the same) */
+const SAFE = 720;
+/** a comparison side: half the column less the gap between the two */
+const SIDE = SAFE / 2 - 10;
+
 export interface BoardCardRow {
   rank: string;
   name: string;
@@ -82,33 +87,33 @@ function chartSvg(c: Chart, W: number, H: number): { svg: string; len: number; t
 
 /** the chart and its labels: the unit's first and last ordinal under it, the top value at its left */
 function chart(c: Chart): string {
-  const { svg, len, top } = chartSvg(c, 720, 130);
+  const { svg, len, top } = chartSvg(c, SAFE, 130);
   const lab = `font-family:'IBM Plex Mono'; font-size:11px; letter-spacing:1px; color:${FAINT};`;
   return `
-    <div style="display:flex; flex-direction:row; justify-content:space-between; width:720px; margin-top:12px;">
+    <div style="display:flex; flex-direction:row; justify-content:space-between; width:${SAFE}px; margin-top:12px;">
       <div style="display:flex; ${lab}">${esc(c.unit.toUpperCase())} 1</div>
       <div style="display:flex; ${lab}">TOP ${top.toLocaleString('en-US')}</div>
       <div style="display:flex; ${lab}">${esc(c.unit.toUpperCase())} ${len}</div>
     </div>
-    <img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}" width="720" height="130" style="margin-top:2px;" />`;
+    <img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}" width="${SAFE}" height="130" style="margin-top:2px;" />`;
 }
 
 export function renderCard(card: Card): Response {
   const body = card.sides
     ? `
-    <div style="display:flex; flex-direction:row; justify-content:space-between; width:720px; margin-top:6px;">
+    <div style="display:flex; flex-direction:row; justify-content:space-between; width:${SAFE}px; margin-top:6px;">
       ${card.sides.map((s, i) => `
-      <div style="display:flex; flex-direction:column; width:350px; align-items:${i ? 'flex-end' : 'flex-start'};">
-        <div style="display:flex; font-family:'Source Serif 4'; font-size:24px; color:${INK}; ${nowrap} max-width:350px;">${esc(s.name)}</div>
+      <div style="display:flex; flex-direction:column; width:${SIDE}px; align-items:${i ? 'flex-end' : 'flex-start'};">
+        <div style="display:flex; font-family:'Source Serif 4'; font-size:24px; color:${INK}; ${nowrap} max-width:${SIDE}px;">${esc(s.name)}</div>
         <div style="display:flex; flex-direction:row; align-items:baseline; gap:10px;">
           <div style="display:flex; font-family:'Graduate'; font-size:46px; color:${i ? MUTED : CREAM};">${esc(s.value)}</div>
           <div style="display:flex; font-family:'IBM Plex Mono'; font-size:12px; letter-spacing:1px; color:${FAINT};">${esc(s.unit.toUpperCase())}</div>
         </div>
-        <div style="display:flex; font-family:'IBM Plex Mono'; font-size:11px; letter-spacing:1px; color:${FAINT}; ${nowrap} max-width:350px;">${esc(s.claim.toUpperCase())}</div>
+        <div style="display:flex; font-family:'IBM Plex Mono'; font-size:11px; letter-spacing:1px; color:${FAINT}; ${nowrap} max-width:${SIDE}px;">${esc(s.claim.toUpperCase())}</div>
       </div>`).join('')}
     </div>
     ${card.chart ? chart(card.chart) : ''}
-    ${(card.lines ?? []).map((l, i) => `<div style="display:flex; font-family:'Source Serif 4'; font-size:18px; line-height:1.3; color:${i ? MUTED : INK}; margin-top:${i ? 2 : 8}px; width:720px;">${esc(l)}</div>`).join('')}`
+    ${(card.lines ?? []).map((l, i) => `<div style="display:flex; font-family:'Source Serif 4'; font-size:18px; line-height:1.3; color:${i ? MUTED : INK}; margin-top:${i ? 2 : 8}px; width:${SAFE}px;">${esc(l)}</div>`).join('')}`
     : (card.rows ?? []).map((r, i, all) => `
     <div style="display:flex; flex-direction:row; align-items:center; gap:14px; height:42px; ${i < all.length - 1 ? `border-bottom:1px dashed ${LINE};` : ''}">
       <div style="display:flex; width:30px; font-family:'IBM Plex Mono'; font-size:12px; color:${r.rank === '1' ? CREAM : FAINT};">${esc(r.rank)}</div>
@@ -122,9 +127,9 @@ export function renderCard(card: Card): Response {
   <div style="display:flex; flex-direction:column; align-items:center; width:1200px; height:630px; background-color:${BG}; padding:40px 0 22px;
               background-image: radial-gradient(circle at 600px -126px, rgba(243,226,188,0.13) 0%, rgba(243,226,188,0) 65%);">
     <div style="display:flex; font-family:'IBM Plex Mono'; font-weight:600; font-size:16px; letter-spacing:4px; color:${RUST};">NFL COMPARATOR</div>
-    <div style="display:flex; font-family:'Graduate'; font-size:${card.heading.length > 34 ? 28 : 36}px; color:${CREAM}; margin-top:14px; ${nowrap} max-width:720px;">${esc(card.heading.toUpperCase())}</div>
-    <div style="display:flex; font-family:'IBM Plex Mono'; font-size:14px; letter-spacing:2px; color:${FAINT}; margin-top:6px; ${nowrap} max-width:720px;">${esc(card.sub.toUpperCase())}</div>
-    <div style="display:flex; flex-direction:column; margin-top:14px; flex-grow:1; width:720px;">${body}</div>
+    <div style="display:flex; font-family:'Graduate'; font-size:${card.heading.length > 34 ? 28 : 36}px; color:${CREAM}; margin-top:14px; ${nowrap} max-width:${SAFE}px;">${esc(card.heading.toUpperCase())}</div>
+    <div style="display:flex; font-family:'IBM Plex Mono'; font-size:14px; letter-spacing:2px; color:${FAINT}; margin-top:6px; ${nowrap} max-width:${SAFE}px;">${esc(card.sub.toUpperCase())}</div>
+    <div style="display:flex; flex-direction:column; margin-top:14px; flex-grow:1; width:${SAFE}px;">${body}</div>
     <div style="display:flex; font-family:'IBM Plex Mono'; font-size:14px; letter-spacing:2px; color:${FAINT}; margin-top:10px;">${esc(card.footer.toUpperCase())}</div>
   </div>`;
 
