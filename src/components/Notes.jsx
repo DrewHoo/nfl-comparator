@@ -10,16 +10,21 @@ export function Notes({ ledger }) {
       <section className="notes" aria-label="What to read next">
         <h2>What to read next</h2>
         <p>
-          <a href="https://drewhoover.com/nhl-comparator/">NHL Comparator</a> — the same comparator over every NHL
-          career since 1917-18, Gretzky and Howe included.
+          <a href="https://drewhoover.com/nba-comparator/">NBA Comparator</a> — the same comparator over every NBA
+          career since 1946-47, Wilt and Jordan included, with a page for every player and what he leads.
         </p>
         <p>
           <a href="https://drewhoover.com/wnba-comparator/">WNBA Comparator</a> — the same comparator over every WNBA
           career since 1997.
         </p>
         <p>
-          <a href="https://drewhoover.com/nba-comparator/">NBA Comparator</a> — the same comparator over every NBA
-          career since 1946-47, Wilt and Jordan included, with a page for every player and what he leads.
+          <a href="https://drewhoover.com/nhl-comparator/">NHL Comparator</a> — the same comparator over every NHL
+          career since 1917-18, Gretzky and Howe included.
+        </p>
+        <p>
+          <a href="https://drewhoover.com/cfb-comparator/">College Football Comparator</a> — every coach, team and player
+          at the same point in their careers, since 1869, with the best players of each position at every school and
+          conference.
         </p>
         <p>
           <a href="https://drewhoover.com/cfb-streak-king/">College Football Streak King</a> — the longest active and
@@ -32,6 +37,14 @@ export function Notes({ ledger }) {
         <p>
           <a href="https://drewhoover.com/how-many-rings/">How Many Rings?</a> — every person on a national-championship
           staff since 1990, ranked by the number of rings they can claim.
+        </p>
+        <p>
+          <a href="https://drewhoover.com/collegiate-championships/">Collegiate Championships</a> — which schools have won
+          the most NCAA championships, across 33 sports.
+        </p>
+        <p>
+          <a href="https://drewhoover.com/cfb-all-time-records/">CFB All-Time Records</a> — all-time win-loss, bowl and
+          national-title records for every FBS program.
         </p>
       </section>
 
@@ -71,8 +84,7 @@ export function Notes({ ledger }) {
         </p>
         <p>
           A player's page (from his name in the panel) lists every comparison he leads: the stretch of N where he is first
-          under a sentence, the records he set that were later broken, and the points where he is ahead of one of the ten
-          biggest careers in the stat. The rows are scored in bits (how many could have held it, how deep the window, how
+          under a sentence, and the records he set that were later broken. The rows are scored in bits (how many could have held it, how deep the window, how
           long the lead held, by how much, how plainly it reads) and folded to one row per claim.
         </p>
         <p>
