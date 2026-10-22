@@ -97,13 +97,16 @@ function BoardApp({ landing }) {
     document.title = row ? compareText(query, board, row, peerOf(board, row, vs)).title : toUrl({ query, open: null }) ? boardText(query, board).title : rootTitle()
   }, [board, query, row, vs])
 
-  const change = (q) => {
+  // `track: false` changes the query without the `query` event: the number box uses it while a number is typed
+  // and fires the event itself once, on blur (trackQuery)
+  const change = (q, { track: tracked = true } = {}) => {
     const next = normalize(q)
     setQuery(next)
     if (next.pos !== query.pos) { setOpen(null); setVs(null) }
     writeUrl(toHref({ query: next, open: next.pos !== query.pos ? null : open, vs: next.pos !== query.pos ? null : vs }), 'replace')
-    track('query', { words: queryWords(next) })
+    if (tracked) track('query', { words: queryWords(next) })
   }
+  const trackQuery = () => track('query', { words: queryWords(query) })
   const openRow = (key) => {
     const next = open === key ? null : key
     setOpen(next)
@@ -136,7 +139,7 @@ function BoardApp({ landing }) {
       </div>
       {/* one h1: the site as an eyebrow, the board's subject as the title, worded the way it's searched */}
       <h1><span className="h1-site">{SITE}</span><span className="h1-words">{h1Words(query)}</span></h1>
-      <Sentence query={query} onChange={change} firstSeason={QB.firstSeason} />
+      <Sentence query={query} onChange={change} onTrack={trackQuery} firstSeason={QB.firstSeason} />
       <p className="baserate">
         {`Same point in the career, every ${query.seq === 'teamGames' ? 'season' : 'career'} since ${query.since ?? QB.firstSeason}.`}
         {board && board.ranked[0] && board.ranked[0].value != null && <> The leader: <b>{board.ranked[0].player.name}</b>, {board.ranked[0].value.toLocaleString('en-US')}{board.ranked[1] && board.ranked[1].value != null ? <>; then <b>{board.ranked[1].player.name}</b>, {board.ranked[1].value.toLocaleString('en-US')}</> : null}.</>}
