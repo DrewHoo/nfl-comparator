@@ -11,7 +11,7 @@ export function Notes({ ledger }) {
       <section className="notes" aria-label="What to read next">
         <h2>What to read next</h2>
         {SIBLINGS.map((s) => (
-          <p key={s.url}><a href={s.url}>{s.name}</a> — {s.words}.</p>
+          <p key={s.url}><a href={s.url}>{s.name}</a>{s.links ? ': ' : ' — '}{s.words}.{s.links?.map((l, i) => <span key={l.url}>{i ? ' | ' : ' '}<a href={l.url}>{l.name}</a></span>)}</p>
         ))}
       </section>
 

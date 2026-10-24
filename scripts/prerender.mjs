@@ -313,7 +313,7 @@ ${llmsTeams.map((t) => `- [${t.h1}](${t.url}): ${t.lead}`).join('\n')}
 
 ## What to read next
 
-${SIBLINGS.map((s) => `- [${s.name}](${s.url}) — ${s.words}.`).join('\n')}
+${SIBLINGS.map((s) => `- [${s.name}](${s.url})${s.links ? ':' : ' —'} ${s.words}.${s.links ? ' ' + s.links.map((l) => `[${l.name}](${l.url})`).join(' | ') : ''}`).join('\n')}
 `
   fs.writeFileSync(path.join(ROOT, 'dist', 'llms.txt'), txt)
   console.log(`llms.txt: ${llmsBoards.length} named boards, ${llmsPlayers.length} player pages, ${llmsTeams.length} team pages`)
